@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.yourdomain.GhostController</id>
+  <name>Ghost Controller</name>
+  <summary>Native UAV ground control station for Linux</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <description>
+    <p>
+      Ghost Controller is a native ground control station for UAVs, built with
+      PySide6 + Qt Quick (QML) and running the proven MAVLink backend in-process.
+      It is the native desktop port of the Ghost Handler web GCS HUD.
+    </p>
+    <p>
+      Features include a full-bleed video HUD with pitch ladder and tapes, a
+      heading / roll / pitch readout, a map screen with offline tiles and image
+      overlay, a mission planner with waypoints / fence / survey / orbit tools,
+      parameter editing with staged writes, video source selection (RTP / RTSP /
+      MJPEG), battery setup, and firmware-aware mode selection for PX4 and
+      ArduPilot vehicles.
+    </p>
+    <p>
+      The app never fabricates a vehicle link: without a real MAVLink heartbeat
+      it stays DISCONNECTED and shows the configured listening address. Launch
+      with --sim for a simulated demo that cannot be mistaken for a live vehicle.
+    </p>
+  </description>
+  <launchable type="desktop-id">ghost-handler.desktop</launchable>
+  <categories>
+    <category>Utility</category>
+    <category>Science</category>
+  </categories>
+  <developer_name>Ghost Handler</developer_name>
+</component>

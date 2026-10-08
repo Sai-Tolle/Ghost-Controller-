@@ -1,0 +1,20 @@
+# Ghost Handler Desktop — runtime
+PySide6-Essentials~=6.8
+
+# Vendored backend (backend/mavlink) runs in-process and needs:
+pymavlink~=2.4
+pyserial>=3.5
+
+# Video pipeline (app/video): PyAV decode (udp_rtp H.264/RTP), numpy frames,
+# OpenCV capture (rtsp/webcam) + MJPEG decode.
+# NOTE: av==13.1.1 (backend pin) needs Python ≥3.11; the desktop venv is
+# 3.10, so pin the last PyAV with 3.10 wheels. On a 3.11+ venv prefer the
+# backend pin instead.
+numpy
+av==12.3.0; python_version < "3.11"
+av==13.1.1; python_version >= "3.11"
+opencv-python-headless
+
+# (brought in transitively by the backend's gcs.env loader, listed explicitly
+# so the desktop venv always has it)
+python-dotenv

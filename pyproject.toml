@@ -1,0 +1,10 @@
+[project]
+name = "ghost-handler-desktop"
+version = "0.1.0"
+description = "Ghost Handler native ground control station (PySide6 + QML) wrapping the proven GCS backend in-process"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"

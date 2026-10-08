@@ -1,0 +1,23 @@
+{
+  "name": "Ghost Handler HUD",
+  "version": "1.0.0",
+  "description": "Real widget inventory of the Ghost Handler GCS. Consumed by the Figma plugin (design/figma-plugin) to stamp true-to-size HUD mockups, and by the QML widget framework to keep design and implementation aligned.",
+  "frame": { "width": 1440, "height": 900 },
+  "widgets": [
+    { "id": "topbar",          "name": "Top Bar",            "w": 1440, "h": 52,  "zone": "top" },
+    { "id": "map",             "name": "Map Canvas",         "w": 1044, "h": 748, "zone": "center" },
+    { "id": "gauge-speed",     "name": "Speed Tape",         "w": 64,   "h": 240, "zone": "map-overlay" },
+    { "id": "gauge-alt",       "name": "Altitude Tape",      "w": 64,   "h": 240, "zone": "map-overlay" },
+    { "id": "attitude",        "name": "Attitude Indicator", "w": 220,  "h": 220, "zone": "map-overlay" },
+    { "id": "telemetry-strip", "name": "Telemetry Strip",    "w": 1440, "h": 72,  "zone": "bottom" },
+    { "id": "video",           "name": "Video Panel",        "w": 360,  "h": 456, "zone": "right" },
+    { "id": "alerts",          "name": "Alerts Panel",       "w": 360,  "h": 220, "zone": "right" },
+    { "id": "ai-console",      "name": "AI Console",         "w": 360,  "h": 420, "zone": "right" },
+    { "id": "mission-planner", "name": "Mission Planner",    "w": 480,  "h": 560, "zone": "overlay" },
+    { "id": "mode-selector",   "name": "Mode Selector",      "w": 320,  "h": 200, "zone": "overlay" },
+    { "id": "gps",             "name": "GPS Indicator",      "w": 120,  "h": 28,  "zone": "topbar" },
+    { "id": "signal",          "name": "Signal Indicator",   "w": 120,  "h": 28,  "zone": "topbar" },
+    { "id": "battery",         "name": "Battery Readout",    "w": 120,  "h": 44,  "zone": "strip" },
+    { "id": "mini-widget",     "name": "Mini Widget Slot",   "w": 120,  "h": 44,  "zone": "strip" }
+  ]
+}

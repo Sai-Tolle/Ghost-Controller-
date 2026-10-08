@@ -1,0 +1,10 @@
+.venv/
+.venv-desktop/
+build/
+dist/
+__pycache__/
+*.pyc
+web/tokens/
+squashfs-root/
+*.zip
+appimage-*.log

@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+<style>
+  body { font: 12px/1.5 Inter, sans-serif; margin: 12px; color: #e6edf3; background: #1e1e1e; }
+  h3 { margin: 10px 0 4px; font-size: 12px; letter-spacing: .5px; text-transform: uppercase; color: #8b98a9; }
+  textarea { width: 100%; height: 110px; box-sizing: border-box; font: 11px/1.4 monospace;
+             background: #111823; color: #e6edf3; border: 1px solid #33445c; border-radius: 6px; padding: 6px; }
+  button { margin-top: 6px; padding: 7px 12px; border: 0; border-radius: 6px; cursor: pointer;
+           background: #22d3ee; color: #06202a; font-weight: 600; }
+  button.secondary { background: #33445c; color: #e6edf3; }
+  p.hint { color: #8b98a9; margin: 4px 0 0; }
+</style>
+</head>
+<body>
+  <h3>1 · Design tokens</h3>
+  <textarea id="tokens" spellcheck="false" placeholder="Paste full contents of GCS-Desktop/design/tokens.json"></textarea>
+  <button onclick="send('import-tokens','tokens')">Create / update paint styles</button>
+
+  <h3>2 · Widget manifest</h3>
+  <textarea id="widgets" spellcheck="false" placeholder="Paste full contents of GCS-Desktop/design/figma/manifest.json"></textarea>
+  <button class="secondary" onclick="send('stamp-widgets','widgets')">Stamp HUD mockup frames</button>
+
+  <p class="hint">Paste both files from the repo. Styles are named gh/&lt;group&gt;/… and stay in
+  lockstep with QML via tools/gen_tokens.py.</p>
+  <button class="secondary" onclick="parent.postMessage({pluginMessage:{type:'close'}},'*')">Close</button>
+
+  <script>
+    function send(type, srcId) {
+      var text = document.getElementById(srcId).value;
+      if (!text.trim()) { alert('Paste the JSON first.'); return; }
+      parent.postMessage({ pluginMessage: { type: type, text: text } }, '*');
+    }
+  </script>
+</body>
+</html>
