@@ -8,11 +8,14 @@ pyserial>=3.5
 # Video pipeline (app/video): PyAV decode (udp_rtp H.264/RTP), numpy frames,
 # OpenCV capture (rtsp/webcam) + MJPEG decode.
 # NOTE: av==13.1.1 (backend pin) needs Python ≥3.11; the desktop venv is
-# 3.10, so pin the last PyAV with 3.10 wheels. On a 3.11+ venv prefer the
-# backend pin instead.
+# 3.10, so pin the last PyAV with 3.10 wheels. For 3.11+ we pin 14.2.0 —
+# PyAV 13.1.1 publishes NO cp311/cp312 wheels (only sdist, which fails to
+# build without ffmpeg headers — this broke the CI build on Python 3.12),
+# while 14.2.0 has wheels for 3.11/3.12 AND matches Debian trixie's
+# python3-av, so laptop, Pi (apt) and CI all run the same PyAV major.
 numpy
 av==12.3.0; python_version < "3.11"
-av==13.1.1; python_version >= "3.11"
+av==14.2.0; python_version >= "3.11"
 opencv-python-headless
 
 # (brought in transitively by the backend's gcs.env loader, listed explicitly
