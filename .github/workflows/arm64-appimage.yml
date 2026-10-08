@@ -1,13 +1,18 @@
-# Build the ARM64 (aarch64) AppImage on real ARM hardware.
+# Build both AppImage architectures and ship them together on one release.
 #
-# Why a Debian trixie container: the GitHub ARM64 runner (ubuntu-24.04-arm) is
-# free for public repos, but Ubuntu 24.04 has no python3-pyside6 package and
-# PyPI has NO aarch64 wheels for PySide6/numpy/PyAV/OpenCV. Debian trixie
-# ships all of them as arm64 debs (python3-pyside6.qtquick 6.8.2.1, numpy,
-# av, opencv — verified via the Debian madison API), so the build runs inside
-# a trixie container where packaging/build-linux.sh's aarch64 branch uses apt
-# for the heavy deps and pip only for the pure-Python remainder.
-name: ARM64 AppImage
+# x86_64: GitHub's ubuntu-24.04 runner — PyPI has x86_64 wheels for
+#          PySide6/numpy/PyAV/OpenCV, so the normal pip venv path works.
+# aarch64: ubuntu-24.04-arm runner (free for public repos) + Debian trixie
+#          container — Ubuntu 24.04 has no python3-pyside6 package and PyPI
+#          has NO aarch64 wheels for those four, but trixie ships them as
+#          arm64 debs (python3-pyside6.qtquick 6.8.2.1 verified via the
+#          Debian madison API), so packaging/build-linux.sh's aarch64 branch
+#          uses apt for the heavy deps and pip only for pure-Python remainder.
+#
+# The ARM64 job depends on x86_64 so both attach to the SAME release without
+# racing to create it. Trigger: push a tag (v*) or run manually from the
+# Actions tab (artifacts only).
+name: AppImage builds (x86_64 + ARM64)
 
 on:
   push:
@@ -18,14 +23,53 @@ permissions:
   contents: write
 
 jobs:
-  arm64-appimage:
-    runs-on: ubuntu-24.04-arm
-    container:
-      image: debian:trixie
+  x86_64-appimage:
+    runs-on: ubuntu-24.04
     env:
       # build-linux.sh reads GH_REPO for the AppImageUpdate feed URL.
       GH_REPO: ${{ github.repository }}
       # Headless Qt for the in-build smoke test.
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Install system packages (Qt runtime libs, zsync for the feed)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 zsync file
+
+      - uses: actions/checkout@v4
+
+      - name: Build AppImage (+ .zsync update feed sidecar)
+        run: ./packaging/build-linux.sh --appimage
+
+      - name: Smoke test the built AppImage
+        run: ./dist/Ghost_Controller-x86_64.AppImage --smoke
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Ghost_Controller-x86_64.AppImage
+            dist/Ghost_Controller-x86_64.AppImage.zsync
+
+      - name: Upload as artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ghost_Controller-x86_64
+          path: |
+            dist/Ghost_Controller-x86_64.AppImage
+            dist/Ghost_Controller-x86_64.AppImage.zsync
+
+  arm64-appimage:
+    # Sequential so both jobs attach to one release without a create-race.
+    needs: x86_64-appimage
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian:trixie
+    env:
+      GH_REPO: ${{ github.repository }}
       QT_QPA_PLATFORM: offscreen
       # No FUSE inside containers; AppImages self-extract instead.
       APPIMAGE_EXTRACT_AND_RUN: "1"
