@@ -7,7 +7,13 @@ Pick your platform below.
 
 ## A. Laptop / desktop (x86_64 Linux) — recommended
 
-The AppImage is self-contained: no install, no dependencies.
+**One-line install** (downloads the AppImage, sets up menu entry + icon):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/install.sh | bash
+```
+
+**Or manual** — the AppImage is self-contained: no install, no dependencies.
 
 ```bash
 # 1. Download both files from the release page
@@ -55,6 +61,14 @@ so the Pi runs the app **from source**. The Pi must be on **Raspberry Pi OS
 The heavy dependencies (Qt/PySide6, numpy, PyAV, OpenCV) have **no pip
 wheels for ARM64** — pip would try to compile them from source (hours).
 They come from `apt` instead; pip only installs the pure-Python remainder.
+
+**One-line setup** (same steps as below, automated):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/install.sh | bash
+```
+
+**Or manual** (step 1 — system packages: Qt, video libs, build tools):
 
 ```bash
 # 1. System packages (Qt, video libs, build tools)

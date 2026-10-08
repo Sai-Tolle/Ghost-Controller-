@@ -1,0 +1,66 @@
+# Build the ARM64 (aarch64) AppImage on real ARM hardware.
+#
+# Why a Debian trixie container: the GitHub ARM64 runner (ubuntu-24.04-arm) is
+# free for public repos, but Ubuntu 24.04 has no python3-pyside6 package and
+# PyPI has NO aarch64 wheels for PySide6/numpy/PyAV/OpenCV. Debian trixie
+# ships all of them as arm64 debs (python3-pyside6.qtquick 6.8.2.1, numpy,
+# av, opencv — verified via the Debian madison API), so the build runs inside
+# a trixie container where packaging/build-linux.sh's aarch64 branch uses apt
+# for the heavy deps and pip only for the pure-Python remainder.
+name: ARM64 AppImage
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  arm64-appimage:
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian:trixie
+    env:
+      # build-linux.sh reads GH_REPO for the AppImageUpdate feed URL.
+      GH_REPO: ${{ github.repository }}
+      # Headless Qt for the in-build smoke test.
+      QT_QPA_PLATFORM: offscreen
+      # No FUSE inside containers; AppImages self-extract instead.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - name: Install system packages (Qt, video libs, build tools)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates curl file xz-utils \
+            python3 python3-pip python3-venv python3-dev \
+            python3-pyside6.qtquick python3-pyside6.qtwidgets \
+            python3-numpy python3-av python3-opencv \
+            libgl1 libegl1 zsync build-essential
+
+      - uses: actions/checkout@v4
+
+      - name: Build AppImage (+ .zsync update feed sidecar)
+        run: ./packaging/build-linux.sh --appimage
+
+      - name: Smoke test the built AppImage
+        run: ./dist/Ghost_Controller-aarch64.AppImage --smoke
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Ghost_Controller-aarch64.AppImage
+            dist/Ghost_Controller-aarch64.AppImage.zsync
+
+      - name: Upload as artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ghost_Controller-aarch64
+          path: |
+            dist/Ghost_Controller-aarch64.AppImage
+            dist/Ghost_Controller-aarch64.AppImage.zsync

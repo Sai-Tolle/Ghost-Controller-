@@ -8,6 +8,10 @@ cd "$(dirname "$0")/.."
 VENV=${VENV:-.venv-desktop}
 PY="$VENV/bin/python"
 
+# Target architecture: PyInstaller cannot cross-compile, so this script must
+# run ON the architecture it builds for (x86_64 laptop, aarch64 Pi/CI runner).
+ARCH=$(uname -m)
+
 # AppImageUpdate feed settings (embedded as update-information in the AppImage):
 #   GH_REPO   e.g. "yourname/GCS-Desktop"  -> gh-releases-zsync feed on GitHub Releases
 #   APP_VER   read from pyproject.toml (tomllib on 3.11+, regex fallback on 3.10)
@@ -16,10 +20,21 @@ GH_REPO=${GH_REPO:-${GITHUB_REPOSITORY:-}}
 APP_VER=$(sed -n "s/^version[[:space:]]*=[[:space:]]*\"\([0-9][0-9.]*\)\"/\1/p" pyproject.toml | head -n1)
 
 if [ ! -x "$PY" ]; then
-    python3 -m venv "$VENV"
-    "$VENV/bin/pip" install --upgrade pip
-    "$VENV/bin/pip" install -r requirements.txt
-    "$VENV/bin/pip" install pyinstaller
+    if [ "$ARCH" = "aarch64" ]; then
+        # ARM64: PyPI has NO aarch64 wheels for PySide6/numpy/PyAV/OpenCV.
+        # Those come from apt (Debian trixie: python3-pyside6.qtquick etc.);
+        # the venv needs system site-packages and pip installs only the
+        # pure-Python remainder of requirements.txt.
+        python3 -m venv --system-site-packages "$VENV"
+        "$VENV/bin/pip" install --upgrade pip
+        grep -vE '^(PySide6|numpy|av==|opencv)' requirements.txt | "$VENV/bin/pip" install -r /dev/stdin
+        "$VENV/bin/pip" install pyinstaller
+    else
+        python3 -m venv "$VENV"
+        "$VENV/bin/pip" install --upgrade pip
+        "$VENV/bin/pip" install -r requirements.txt
+        "$VENV/bin/pip" install pyinstaller
+    fi
 fi
 
 echo "== regenerate tokens =="
@@ -34,17 +49,21 @@ echo "bundle: dist/ghost-handler/ghost-handler"
 
 if [ "${1:-}" = "--appimage" ]; then
     echo "== AppImage =="
-    if ! command -v linuxdeploy-x86_64.AppImage >/dev/null 2>&1; then
-        if [ ! -x /tmp/linuxdeploy-x86_64.AppImage ]; then
-            echo "linuxdeploy not found; fetching..."
-            curl -L -o /tmp/linuxdeploy-x86_64.AppImage \
-                https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-            chmod +x /tmp/linuxdeploy-x86_64.AppImage
+    # linuxdeploy publishes per-arch binaries; pick ours (x86_64 / aarch64).
+    LD_NAME="linuxdeploy-${ARCH}.AppImage"
+    if ! command -v "$LD_NAME" >/dev/null 2>&1; then
+        if [ ! -x "/tmp/$LD_NAME" ]; then
+            echo "linuxdeploy not found; fetching $LD_NAME..."
+            curl -L -o "/tmp/$LD_NAME" \
+                "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/$LD_NAME"
+            chmod +x "/tmp/$LD_NAME"
         fi
-        LINUXDEPLOY=/tmp/linuxdeploy-x86_64.AppImage
+        LINUXDEPLOY=/tmp/$LD_NAME
     else
-        LINUXDEPLOY=linuxdeploy-x86_64.AppImage
+        LINUXDEPLOY=$LD_NAME
     fi
+    # Allow running AppImages inside containers/CI where FUSE is unavailable.
+    export APPIMAGE_EXTRACT_AND_RUN=1
 
     APPDIR=$(mktemp -d)/GhostHandler.AppDir
     mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/icons/hicolor/256x256/apps"
@@ -92,13 +111,14 @@ EOF
     # the plain gh-releases type. So we embed gh-releases-zsync and generate a
     # .zsync sidecar (delta updates) after the AppImage is produced.
     ZSYNCCMAKE=${ZSYNCCMAKE:-zsyncmake}
+    # Output name is derived from the desktop file's Name= + target arch
+    # (Ghost Controller -> Ghost_Controller-x86_64.AppImage, or _-aarch64).
+    # The embedded feed MUST point at the per-arch .zsync filename.
+    EXPECTED_NAME="Ghost_Controller-${ARCH}.AppImage"
     UPDATE_ENV=()
     if [ -n "$GH_REPO" ]; then
-        UPDATE_ENV=(env "LDAI_UPDATE_INFORMATION=gh-releases-zsync|${GH_REPO%%/*}|${GH_REPO#*/}|latest|Ghost_Controller-x86_64.AppImage.zsync")
+        UPDATE_ENV=(env "LDAI_UPDATE_INFORMATION=gh-releases-zsync|${GH_REPO%%/*}|${GH_REPO#*/}|latest|${EXPECTED_NAME}.zsync")
     fi
-    # Output name is derived from the desktop file's Name= (Ghost Controller ->
-    # Ghost_Controller-x86_64.AppImage); detect it so the check below matches.
-    EXPECTED_NAME="Ghost_Controller-x86_64.AppImage"
     if [ -f "dist/$EXPECTED_NAME" ]; then
         rm -f "dist/$EXPECTED_NAME"
     fi
