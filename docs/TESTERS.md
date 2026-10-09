@@ -54,8 +54,12 @@ with Ubuntu live USB instead — this build is Linux-only.
 
 ## B. Raspberry Pi 5 (aarch64)
 
-There is **no ARM64 AppImage yet** (Qt has no pre-built ARM64 Python wheels),
-so the Pi runs the app **from source**. The Pi must be on **Raspberry Pi OS
+Since v0.1.3 there IS an ARM64 AppImage on the release page, but the
+recommended Pi path is still running **from source** via the installer below —
+it works on any Trixie-based Pi OS without AppImage/FUSE caveats. (Want the
+AppImage instead? Grab `Ghost_Controller-aarch64.AppImage` from the
+releases page; it needs a Trixie-based OS plus `libfuse2`, or run it with
+`APPIMAGE_EXTRACT_AND_RUN=1`.) The Pi must be on **Raspberry Pi OS
 64-bit (Bookworm or newer)** — Pi 5 recommended, Pi 4 minimum.
 
 The heavy dependencies (Qt/PySide6, numpy, PyAV, OpenCV) have **no pip
