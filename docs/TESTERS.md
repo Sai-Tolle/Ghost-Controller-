@@ -7,7 +7,7 @@ Pick your platform below.
 
 ## A. Laptop / desktop (x86_64 Linux) — recommended
 
-**One-line install** (downloads the AppImage, sets up menu entry + icon):
+**One-line install** (downloads the AppImage, sets up a **Desktop icon** + menu entry):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/install.sh | bash
@@ -42,6 +42,25 @@ Terminal=false
 EOF
 ```
 
+Optional — add a **Desktop icon** (double-click to launch):
+
+```bash
+cat > ~/Desktop/ghost-controller.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ghost Controller
+Comment=UAV Ground Control Station
+Exec=/full/path/to/Ghost_Controller-x86_64.AppImage
+Icon=/full/path/to/icon-256.png
+Categories=Utility;
+Terminal=false
+EOF
+chmod +x ~/Desktop/ghost-controller.desktop
+```
+
+On GNOME/Ubuntu you may also need to right-click the Desktop icon →
+**Allow Launching** the first time.
+
 **Updates:** the AppImage embeds an update feed pointing at this same GitHub
 release. When a new release is published, the running app (or any
 AppImageUpdate-capable tool) picks it up automatically — no re-download needed.
@@ -72,7 +91,11 @@ They come from `apt` instead; pip only installs the pure-Python remainder.
 curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/install.sh | bash
 ```
 
-**Or manual** (step 1 — system packages: Qt, video libs, build tools):
+The installer sets up a **Ghost Controller icon on the Desktop** —
+double-click it to launch. (It also drops a `launch-ghost.sh` in the
+repo folder; you can run that from a terminal too.)
+
+**Or manual** (step 1 — system packages: Qt, QML modules, video libs, build tools):
 
 ```bash
 # 1. System packages (Qt, QML modules, video libs, build tools)
@@ -101,6 +124,22 @@ grep -vE '^(PySide6|numpy|av==|opencv)' requirements.txt \
 
 # 4. Run
 .venv/bin/python main.py
+```
+
+To get a **Desktop icon** when installing manually:
+
+```bash
+cat > ~/Desktop/ghost-controller.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ghost Controller
+Comment=UAV Ground Control Station
+Exec=$HOME/Ghost-Controller-/.venv/bin/python $HOME/Ghost-Controller-/main.py
+Icon=/full/path/to/icon-256.png
+Categories=Utility;
+Terminal=false
+EOF
+chmod +x ~/Desktop/ghost-controller.desktop
 ```
 
 `--system-site-packages` is required: it lets the venv see the apt-installed

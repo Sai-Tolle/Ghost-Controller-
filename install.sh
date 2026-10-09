@@ -30,7 +30,8 @@ x86_64)
     say "Installing app menu entry + icon..."
     mkdir -p "$HOME/.local/share/applications" \
              "$HOME/.local/share/icons/hicolor/256x256/apps"
-    curl -fL -o "$HOME/.local/share/icons/hicolor/256x256/apps/ghost-handler.png" \
+    ICON="$HOME/.local/share/icons/hicolor/256x256/apps/ghost-handler.png"
+    curl -fL -o "$ICON" \
         "https://raw.githubusercontent.com/$REPO/main/design/icon-256.png" || true
     cat > "$HOME/.local/share/applications/ghost-handler.desktop" <<EOF
 [Desktop Entry]
@@ -42,7 +43,31 @@ Icon=ghost-handler
 Categories=Utility;
 Terminal=false
 EOF
-    say "Installed. Start it from the app menu, or run:"
+
+    say "Adding a Ghost Controller icon to your Desktop..."
+    DESKTOP_DIR="$HOME/Desktop"
+    if command -v xdg-user-dir >/dev/null 2>&1; then
+        DESKTOP_DIR=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+    fi
+    mkdir -p "$DESKTOP_DIR"
+    cat > "$DESKTOP_DIR/ghost-controller.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ghost Controller
+Comment=UAV Ground Control Station
+Exec=$DEST/Ghost_Controller-x86_64.AppImage
+Icon=$ICON
+Categories=Utility;
+Terminal=false
+EOF
+    chmod +x "$DESKTOP_DIR/ghost-controller.desktop"
+    # GNOME/Ubuntu need the "trusted" metadata bit or the icon shows a
+    # generic file + "Allow Launching" prompt.
+    if command -v gio >/dev/null 2>&1; then
+        gio set "$DESKTOP_DIR/ghost-controller.desktop" metadata::trusted true 2>/dev/null || true
+    fi
+    say "Installed. Double-click the Ghost Controller icon on your Desktop,
+       start it from the app menu, or run:"
     echo "    $DEST/Ghost_Controller-x86_64.AppImage"
     ;;
 
@@ -76,10 +101,46 @@ aarch64)
             | .venv/bin/pip install -r /dev/stdin
     fi
 
+    say "Creating launcher + Desktop icon..."
+    # Launcher script so the app always runs from the repo root regardless of
+    # the caller's cwd (the desktop entry execs this directly).
+    cat > "$HOME/Ghost-Controller-/launch-ghost.sh" <<'EOF'
+#!/bin/sh
+cd "$HOME/Ghost-Controller-" || exit 1
+exec .venv/bin/python main.py "$@"
+EOF
+    chmod +x "$HOME/Ghost-Controller-/launch-ghost.sh"
+
+    ICON="$HOME/.local/share/icons/hicolor/256x256/apps/ghost-handler.png"
+    mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps"
+    curl -fL -o "$ICON" \
+        "https://raw.githubusercontent.com/$REPO/main/design/icon-256.png" || true
+
+    DESKTOP_DIR="$HOME/Desktop"
+    if command -v xdg-user-dir >/dev/null 2>&1; then
+        DESKTOP_DIR=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+    fi
+    mkdir -p "$DESKTOP_DIR"
+    cat > "$DESKTOP_DIR/ghost-controller.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Ghost Controller
+Comment=UAV Ground Control Station
+Exec=$HOME/Ghost-Controller-/launch-ghost.sh
+Icon=$ICON
+Categories=Utility;
+Terminal=false
+EOF
+    chmod +x "$DESKTOP_DIR/ghost-controller.desktop"
+    if command -v gio >/dev/null 2>&1; then
+        gio set "$DESKTOP_DIR/ghost-controller.desktop" metadata::trusted true 2>/dev/null || true
+    fi
+
     say "Serial telemetry radios need the dialout group (log out/in after):"
     echo "    sudo usermod -aG dialout \$USER"
-    say "Installed. Start the app with:"
-    echo "    $HOME/Ghost-Controller-/.venv/bin/python $HOME/Ghost-Controller-/main.py"
+    say "Installed. Launch it by double-clicking the Ghost Controller icon
+       on your Desktop, or from a terminal:"
+    echo "    $HOME/Ghost-Controller-/launch-ghost.sh"
     ;;
 
 *)
