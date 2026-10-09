@@ -1,4 +1,4 @@
-# Ghost Handler — Native Desktop GCS
+# Ghost Controller
 
 Production-grade **native** ground control station (no web-view wrapper) for
 **Linux first, then Windows**, built with **PySide6 + Qt Quick (QML)** — the
