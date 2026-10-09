@@ -71,11 +71,19 @@ curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/in
 **Or manual** (step 1 — system packages: Qt, video libs, build tools):
 
 ```bash
-# 1. System packages (Qt, video libs, build tools)
+# 1. System packages (Qt, QML modules, video libs, build tools)
+#    NOTE: python3-pyside6.qtquick does NOT include the QML modules the app
+#    imports (QtQuick.Controls/Layouts/Dialogs) — Debian splits each into its
+#    own qml6-module-* package. Missing these causes "QtQuick.Controls is not
+#    installed" on launch.
 sudo apt update
 sudo apt install -y git python3 python3-pip python3-venv \
     python3-pyside6.qtquick python3-pyside6.qtwidgets \
     python3-numpy python3-av python3-opencv \
+    qml6-module-qtquick qml6-module-qtquick-controls \
+    qml6-module-qtquick-layouts qml6-module-qtquick-dialogs \
+    qml6-module-qtquick-templates qml6-module-qtquick-shapes \
+    qml6-module-qtquick-window qml6-module-qtqml-workerscript \
     libgl1 libegl1
 
 # 2. Get the source
