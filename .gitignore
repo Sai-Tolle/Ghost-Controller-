@@ -8,3 +8,12 @@ web/tokens/
 squashfs-root/
 *.zip
 appimage-*.log
+
+# Local configuration / secrets — never commit (copy backend/gcs.env.example)
+backend/gcs.env
+*.env
+!*.env.example
+.env*
+# Local tooling
+.claude/
+launch-ghost.sh

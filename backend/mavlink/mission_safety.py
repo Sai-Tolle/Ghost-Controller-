@@ -1,3 +1,13 @@
+import math
+
+
+def _is_number(value, lo, hi):
+    """Finite real number inside [lo, hi] (bool is not a coordinate)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return math.isfinite(value) and lo <= value <= hi
+
+
 class MissionSafety:
     def __init__(self, preflight):
         self.preflight = preflight
@@ -22,7 +32,10 @@ class MissionSafety:
                 "reason": "EMPTY_MISSION"
             })
 
-        for i, wp in enumerate(mission):
+        for i, wp in enumerate(mission or []):
+            if not isinstance(wp, dict):
+                issues.append({"type": "WAYPOINT", "index": i, "reason": "INVALID_ITEM"})
+                continue
             command = wp.get("command")
             lat = wp.get("lat")
             lon = wp.get("lon")
@@ -30,7 +43,11 @@ class MissionSafety:
 
             # RTL carries no coordinates on the wire (PX4 expects
             # INT32_MAX/NaN for it), so don't require them here either.
-            if command != "RTL" and (lat is None or lon is None):
+            # NaN / Infinity / out-of-range values pass a plain `is None` test
+            # and `alt < min_alt` is False for NaN, so they used to reach the
+            # vehicle (or raise in int(lat * 1e7) mid-upload).
+            if command != "RTL" and not (_is_number(lat, -90.0, 90.0)
+                                         and _is_number(lon, -180.0, 180.0)):
                 issues.append({
                     "type": "WAYPOINT",
                     "index": i,
@@ -43,7 +60,7 @@ class MissionSafety:
             if command == "RTL":
                 continue
             min_alt = 0 if command == "LAND" else 1
-            if alt is None or alt < min_alt:
+            if not _is_number(alt, min_alt, 10000.0):
                 issues.append({
                     "type": "WAYPOINT",
                     "index": i,

@@ -51,21 +51,33 @@ if [ "${1:-}" = "--appimage" ]; then
     echo "== AppImage =="
     # linuxdeploy publishes per-arch binaries; pick ours (x86_64 / aarch64).
     LD_NAME="linuxdeploy-${ARCH}.AppImage"
+    # Private scratch dir (mktemp -d, 0700). The build used to download to and
+    # execute from fixed names in /tmp, which any local user can pre-create.
+    WORK=$(mktemp -d)
+    trap 'rm -rf "$WORK"' EXIT
     if ! command -v "$LD_NAME" >/dev/null 2>&1; then
-        if [ ! -x "/tmp/$LD_NAME" ]; then
-            echo "linuxdeploy not found; fetching $LD_NAME..."
-            curl -L -o "/tmp/$LD_NAME" \
-                "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/$LD_NAME"
-            chmod +x "/tmp/$LD_NAME"
+        # LINUXDEPLOY_TAG pins a linuxdeploy release; LINUXDEPLOY_SHA256, when
+        # set, must match the download or the build stops. "continuous" is a
+        # rolling tag, so pin both for reproducible release builds.
+        LD_TAG=${LINUXDEPLOY_TAG:-continuous}
+        echo "linuxdeploy not found; fetching $LD_NAME ($LD_TAG)..."
+        curl -fL --proto '=https' --tlsv1.2 -o "$WORK/$LD_NAME" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/$LD_TAG/$LD_NAME"
+        if [ -n "${LINUXDEPLOY_SHA256:-}" ]; then
+            echo "$LINUXDEPLOY_SHA256  $WORK/$LD_NAME" | sha256sum -c -
+        else
+            echo "WARNING: LINUXDEPLOY_SHA256 not set - linuxdeploy download is NOT verified" >&2
         fi
-        LINUXDEPLOY=/tmp/$LD_NAME
+        chmod +x "$WORK/$LD_NAME"
+        LINUXDEPLOY=$WORK/$LD_NAME
     else
         LINUXDEPLOY=$LD_NAME
     fi
     # Allow running AppImages inside containers/CI where FUSE is unavailable.
     export APPIMAGE_EXTRACT_AND_RUN=1
 
-    APPDIR=$(mktemp -d)/GhostHandler.AppDir
+    APPDIR=$WORK/GhostHandler.AppDir
+    DESKTOP_FILE=$WORK/ghost-handler.desktop
     mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/icons/hicolor/256x256/apps"
     cp -r dist/ghost-handler/. "$APPDIR/usr/bin/"
     cp design/icon-256.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/ghost-handler.png" 2>/dev/null || true
@@ -77,7 +89,7 @@ exec "$HERE/usr/bin/ghost-handler" "$@"
 EOF
     chmod +x "$APPDIR/AppRun"
 
-    cat > /tmp/ghost-handler.desktop <<EOF
+    cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Ghost Controller
@@ -123,7 +135,7 @@ EOF
         rm -f "dist/$EXPECTED_NAME"
     fi
     ( cd dist && "${UPDATE_ENV[@]}" "$LINUXDEPLOY" --appdir "$APPDIR" \
-        --desktop-file /tmp/ghost-handler.desktop \
+        --desktop-file "$DESKTOP_FILE" \
         --output appimage )
     if [ -f "dist/$EXPECTED_NAME" ]; then
         chmod +x "dist/$EXPECTED_NAME"

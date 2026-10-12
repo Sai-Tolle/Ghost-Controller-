@@ -12,6 +12,8 @@ import "../components"
 Item {
     id: root
     signal openMap()
+    signal openLink()
+    signal openVideo()
 
     readonly property var tm: Telemetry.telemetry
     readonly property bool link: tm.connected
@@ -58,6 +60,7 @@ Item {
     PitchLadder {
         anchors.centerIn: parent
         pitch: root.tm.pitch
+        showReference: false
         visible: root.link
     }
 
@@ -137,14 +140,47 @@ Item {
     }
 
     // ---- command dock (bottom left) ----------------------------------------------------------
-    Column {
+    Rectangle {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.leftMargin: 16
         anchors.bottomMargin: 16
+        width: 256
+        height: dock.implicitHeight + 24
+        radius: 12
+        color: Qt.rgba(0.04, 0.06, 0.10, 0.82)
+        border.width: 1
+        border.color: Token.color_ui_line
+    }
+    Column {
+        id: dock
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 28
+        anchors.bottomMargin: 28
         width: 232
         spacing: 6
         enabled: root.link
+
+        Item {                                        // dock header: title + armed state
+            width: parent.width; height: 18
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "COMMANDS"
+                font.family: Token.typography_familyMono
+                font.pixelSize: 9; font.letterSpacing: 1.8; font.weight: Font.DemiBold
+                color: Token.color_ui_textDim
+            }
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: !root.link ? "OFFLINE" : root.tm.armed ? "ARMED" : "SAFE"
+                font.family: Token.typography_familyMono
+                font.pixelSize: 9; font.letterSpacing: 1.8; font.weight: Font.Bold
+                color: !root.link ? Token.color_text_muted
+                     : root.tm.armed ? Token.color_status_warn : Token.color_status_ok
+            }
+        }
 
         GridLayout {
             width: parent.width
@@ -252,42 +288,127 @@ Item {
     }
 
     // ---- honest centre states -----------------------------------------------------------------------
-    Column {                                          // link down (or video dropped mid-session)
+    component StateCard: Rectangle {
+        id: sc
+        property color tone: Token.color_status_danger
+        property string heading: ""
+        property string detail: ""
+        property string note: ""
+        default property alias actions: actionRow.data
+        width: Math.max(360, Math.min(520, scCol.implicitWidth + 56))
+        height: scCol.implicitHeight + 44
+        radius: 14
+        color: Qt.rgba(0.04, 0.06, 0.10, 0.90)
+        border.width: 1
+        border.color: Qt.alpha(sc.tone, 0.45)
+        Column {
+            id: scCol
+            anchors.centerIn: parent
+            spacing: 10
+            Rectangle {                               // status glyph
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 40; height: 40; radius: 20
+                color: Qt.alpha(sc.tone, 0.14)
+                border.width: 1; border.color: Qt.alpha(sc.tone, 0.6)
+                Rectangle { anchors.centerIn: parent; width: 10; height: 10; radius: 5; color: sc.tone }
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: sc.heading
+                font.family: Token.typography_familyMono
+                font.pixelSize: 17; font.weight: Font.Bold; font.letterSpacing: 3
+                color: "#FFFFFF"
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: sc.detail !== ""
+                width: Math.min(implicitWidth, 440)
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideMiddle
+                text: sc.detail
+                font.family: Token.typography_familyUi
+                font.pixelSize: 13
+                color: Token.color_text_secondary
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: sc.note !== ""
+                width: Math.min(implicitWidth, 440)
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+                text: sc.note
+                font.family: Token.typography_familyMono
+                font.pixelSize: 10
+                color: sc.tone
+            }
+            Row {
+                id: actionRow
+                anchors.horizontalCenter: parent.horizontalCenter
+                topPadding: 4
+                spacing: 8
+            }
+        }
+    }
+
+    StateCard {                                       // link down (or video dropped mid-session)
         anchors.centerIn: parent
-        spacing: 10
         visible: root.wasLive && (!root.link || !root.showVideo)
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: root.link ? qsTr("VIDEO SIGNAL LOST") : qsTr("NO SIGNAL — CONNECTION LOST")
-            font.family: Token.typography_familyMono
-            font.pixelSize: 22; font.weight: Font.Bold; font.letterSpacing: 4
-            color: Token.color_status_danger
-        }
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: root.link ? qsTr("Waiting for frames…") : qsTr("Vehicle link down — reconnecting…")
-            font.family: Token.typography_familyMono
-            font.pixelSize: 11
-            color: Token.color_ui_textDim
+        heading: root.link ? qsTr("VIDEO SIGNAL LOST") : qsTr("CONNECTION LOST")
+        detail: root.link ? qsTr("Waiting for frames from the camera…")
+                          : qsTr("Vehicle link down — reconnecting on %1").arg(Link.target)
+        TextButton {
+            label: root.link ? qsTr("VIDEO SOURCE") : qsTr("CONNECTION")
+            onClicked: root.link ? root.openVideo() : root.openLink()
         }
     }
-    Text {                                            // link up, no camera on this vehicle
+    Rectangle {                                       // link up, no camera on this vehicle
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: parent.height * 0.76
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 78
         visible: root.link && !root.showVideo && !root.wasLive
-        text: qsTr("NO CAMERA SOURCE DETECTED")
-        font.family: Token.typography_familyMono
-        font.pixelSize: 18; font.weight: Font.Bold; font.letterSpacing: 4
-        color: Token.color_status_warn
+        width: camRow.implicitWidth + 28; height: 30; radius: 15
+        color: Qt.rgba(0.04, 0.06, 0.10, 0.82)
+        border.width: 1
+        border.color: camHover.hovered ? Token.color_status_warn : Qt.alpha(Token.color_status_warn, 0.5)
+        Row {
+            id: camRow
+            anchors.centerIn: parent
+            spacing: 8
+            Rectangle { width: 6; height: 6; radius: 3; color: Token.color_status_warn; anchors.verticalCenter: parent.verticalCenter }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: qsTr("NO CAMERA SOURCE  ·  SET UP VIDEO")
+                font.family: Token.typography_familyMono
+                font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.6
+                color: Token.color_status_warn
+            }
+        }
+        HoverHandler { id: camHover; cursorShape: Qt.PointingHandCursor }
+        TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: root.openVideo() }
     }
-    Text {                                            // nothing connected yet
+    StateCard {                                       // nothing connected yet
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: -parent.height * 0.18
+        anchors.verticalCenterOffset: -parent.height * 0.06
         visible: !root.link && !root.wasLive
-        text: qsTr("NO VEHICLE LINK")
-        font.family: Token.typography_familyMono
-        font.pixelSize: 22; font.weight: Font.Bold; font.letterSpacing: 4
-        color: Token.color_status_danger
+        readonly property bool off: Link.status === "disconnected"
+        readonly property bool none: Link.status === "unavailable"
+        tone: off || none ? Token.color_text_muted
+            : Link.status === "retrying" ? Token.color_status_danger : Token.color_status_warn
+        heading: off ? qsTr("DISCONNECTED") : none ? qsTr("NO VEHICLE BACKEND") : qsTr("NO VEHICLE LINK")
+        detail: none ? qsTr("Running without a MAVLink backend.")
+              : off ? qsTr("Link is off. Target: %1").arg(Link.target)
+              : Link.status === "waiting" ? qsTr("Listening on %1 — waiting for a heartbeat").arg(Link.target)
+              : qsTr("Trying %1").arg(Link.target)
+        note: !off && !none && Link.error !== "" ? Link.error : ""
+        TextButton {
+            visible: Link.available && Link.status === "disconnected"
+            label: qsTr("CONNECT"); tone: "primary"
+            onClicked: Link.connectLink()
+        }
+        TextButton {
+            visible: Link.available
+            label: qsTr("CONNECTION SETTINGS")
+            onClicked: root.openLink()
+        }
     }
 }

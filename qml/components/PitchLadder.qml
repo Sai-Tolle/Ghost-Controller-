@@ -9,6 +9,9 @@ Canvas {
     property real pitch: 0    // deg
     property real roll: 0     // deg (reserved: ladder stays level like the reference)
     property real pxPerDeg: 8
+    // The flight HUD draws its own (white) bore-sight; it turns this one off so
+    // two aircraft symbols are not stacked on each other.
+    property bool showReference: true
 
     width: 560
     height: 420
@@ -17,10 +20,12 @@ Canvas {
     onPaint: {
         var ctx = getContext("2d")
         ctx.reset()
-        ctx.strokeStyle = Token.color_gauge_ladder.toString()
-        ctx.fillStyle = Token.color_gauge_ladder.toString()
-        ctx.lineWidth = 1.3
-        ctx.globalAlpha = 0.7
+        // White with a soft shadow, like the bore-sight: the old accent-blue
+        // ladder vanished against sky and water in the video.
+        ctx.strokeStyle = "#FFFFFF"
+        ctx.fillStyle = "#FFFFFF"
+        ctx.lineWidth = 1.4
+        ctx.globalAlpha = 0.85
         ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 3
         // CSS shorthand: quoted family (multi-word) + generic fallback
         ctx.font = "11px '" + Token.typography_familyMono + "', monospace"
@@ -42,9 +47,9 @@ Canvas {
             ctx.stroke()
             if (halfWidth >= major) {
                 ctx.textAlign = "right"
-                ctx.fillText((deg > 0 ? "+" : "") + deg, mid - gap - 24, y + 4)
+                ctx.fillText((deg > 0 ? "+" : "") + deg, mid - gap - 22 - halfWidth, y + 4)
                 ctx.textAlign = "left"
-                ctx.fillText((deg > 0 ? "+" : "") + deg, mid + gap + 24, y + 4)
+                ctx.fillText((deg > 0 ? "+" : "") + deg, mid + gap + 22 + halfWidth, y + 4)
             }
         }
 
@@ -67,6 +72,7 @@ Canvas {
 
     // ---- fixed aircraft reference: circle + wing bars -----------------
     Rectangle {
+        visible: root.showReference
         anchors.centerIn: parent
         width: 14; height: 14; radius: 7
         color: "transparent"
@@ -74,6 +80,7 @@ Canvas {
         border.color: Token.color_gauge_ladder
     }
     Rectangle {
+        visible: root.showReference
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: centerDot.left
         anchors.rightMargin: 10
@@ -92,6 +99,7 @@ Canvas {
         width: 1; height: 1
     }
     Rectangle {
+        visible: root.showReference
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: centerDot.right
         anchors.leftMargin: 10

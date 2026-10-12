@@ -26,7 +26,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtQuick import QQuickImageProvider
 
 from app.video.config import DEFAULT_RTP_PORT, MODES, VideoConfig
-from app.video.worker import FrameHub, VideoWorker
+from app.video.worker import FrameHub, VideoWorker, redact_url
 
 class VideoImageProvider(QQuickImageProvider):
     """Serves the newest frame as image://video/<seq> — QML Image elements
@@ -118,7 +118,7 @@ class VideoController(QObject):
             return f"udp_rtp:{self._config.get_custom_url('udp_rtp') or DEFAULT_RTP_PORT}"
         url = self._config.get_custom_url(mode)
         if url:
-            return f"{mode}:{url}"
+            return f"{mode}:{redact_url(url)}"     # never paint camera passwords on the HUD
         if mode == "webcam":
             return f"webcam:{self._config.default_url('webcam')}"
         return mode
@@ -140,7 +140,7 @@ class VideoController(QObject):
     def customUrls(self) -> dict:  # noqa: N802
         """{mode: url} — bindable. The old customUrl() slot was evaluated once
         per delegate, so the URL badge and clear button never updated after SET."""
-        return {m: self._config.get_custom_url(m) for m in ("rtsp", "mjpeg")}
+        return {m: redact_url(self._config.get_custom_url(m)) for m in ("rtsp", "mjpeg")}
 
     @Property("QVariantList", constant=True)
     def modeHints(self) -> list:  # noqa: N802
@@ -176,6 +176,11 @@ class VideoController(QObject):
         if mode not in MODES:
             return
         url = url.strip()
+        if len(url) > 2048 or any(ord(ch) < 0x20 for ch in url):
+            self._label = f"{mode}: invalid URL"
+            self._state = "error"
+            self.statusChanged.emit()
+            return
         if mode in ("rtsp", "mjpeg") and url:
             ok = url.lower().startswith("rtsp://") if mode == "rtsp" else url.lower().startswith(("http://", "https://"))
             if not ok:

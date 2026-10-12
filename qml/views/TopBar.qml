@@ -56,6 +56,7 @@ Rectangle {
                         source: Qt.resolvedUrl("../../assets/Logo.jpg")
                         fillMode: Image.PreserveAspectCrop
                         mipmap: true
+                        smooth: true
                         visible: status === Image.Ready
                     }
                     Rectangle {                       // fallback mark when the asset is missing
@@ -77,12 +78,22 @@ Rectangle {
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.sim ? "GCS · SIM" : "GCS"
+                    text: "GHOST CONTROLLER"
                     font.family: Token.typography_familyMono
-                    font.pixelSize: 13
+                    font.pixelSize: 12
                     font.weight: Font.Bold
-                    font.letterSpacing: 3
+                    font.letterSpacing: 2.4
                     color: "#FFFFFF"
+                }
+                Rectangle {                           // unmistakable: this is NOT a real vehicle
+                    visible: root.sim
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: simTag.implicitWidth + 12; height: 18; radius: 4
+                    color: Token.color_ui_warnSoft
+                    border.width: 1; border.color: Token.color_status_warn
+                    Text { id: simTag; anchors.centerIn: parent; text: "SIMULATION"
+                           font.family: Token.typography_familyMono; font.pixelSize: 9
+                           font.weight: Font.Bold; font.letterSpacing: 1.4; color: Token.color_status_warn }
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -97,7 +108,7 @@ Rectangle {
             Popup {
                 id: menu
                 y: logoBtn.height + 8
-                width: 200
+                width: 220
                 padding: 4
                 closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
                 background: Rectangle {
@@ -143,6 +154,24 @@ Rectangle {
                                     else root.openVideo()
                                 }
                             }
+                        }
+                    }
+                    Rectangle { width: menu.availableWidth; height: 1; color: Token.color_ui_line }
+                    Item {                            // about row
+                        width: menu.availableWidth; height: 30
+                        Text {
+                            anchors.left: parent.left; anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Ghost Controller"
+                            font.family: Token.typography_familyUi; font.pixelSize: 11
+                            color: Token.color_ui_textDim
+                        }
+                        Text {
+                            anchors.right: parent.right; anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "v" + AppInfo.version
+                            font.family: Token.typography_familyMono; font.pixelSize: 10
+                            color: Token.color_ui_textDim
                         }
                     }
                 }

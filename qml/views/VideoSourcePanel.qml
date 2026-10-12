@@ -146,7 +146,7 @@ Rectangle {
                                 text: card.modelData.label
                                 font.family: Token.typography_familyMono
                                 font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1.6
-                                color: card.selected ? Token.color_accent_primary : Token.color_ui_text
+                                color: Token.color_ui_text
                             }
                             Rectangle {
                                 visible: card.customUrl !== ""
@@ -160,7 +160,11 @@ Rectangle {
                         Rectangle {
                             visible: card.selected
                             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                            width: 7; height: 7; radius: 3.5; color: Token.color_accent_primary
+                            width: activeTag.implicitWidth + 12; height: 16; radius: 4
+                            color: Token.color_accent_primary
+                            Text { id: activeTag; anchors.centerIn: parent; text: "ACTIVE"
+                                   font.family: Token.typography_familyMono; font.pixelSize: 8
+                                   font.weight: Font.Bold; font.letterSpacing: 1.2; color: "#FFFFFF" }
                         }
                     }
                     Text {
@@ -168,8 +172,8 @@ Rectangle {
                         text: card.modelData.hint
                         wrapMode: Text.WordWrap
                         font.family: Token.typography_familyMono
-                        font.pixelSize: 9
-                        color: Token.color_ui_textDim
+                        font.pixelSize: 10
+                        color: card.selected ? Token.color_text_secondary : Token.color_ui_textDim
                     }
                     Row {
                         visible: card.urlEditable

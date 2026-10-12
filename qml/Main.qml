@@ -35,6 +35,8 @@ ApplicationWindow {
         anchors.fill: parent
         visible: root.viewMode === "flight"
         onOpenMap: root.setView("map")
+        onOpenLink: linkDialog.open()
+        onOpenVideo: root.videoOpen = true
     }
 
     // ---- expanded map / planner: created on demand, destroyed on close ---------------

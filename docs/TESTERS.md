@@ -61,9 +61,25 @@ chmod +x ~/Desktop/ghost-controller.desktop
 On GNOME/Ubuntu you may also need to right-click the Desktop icon →
 **Allow Launching** the first time.
 
-**Updates:** the AppImage embeds an update feed pointing at this same GitHub
-release. When a new release is published, the running app (or any
-AppImageUpdate-capable tool) picks it up automatically — no re-download needed.
+**Updates:** the app does not update itself. To get a new release, run the
+installer again — it downloads the latest AppImage, verifies its SHA-256
+checksum and replaces the old one (your settings in `~/.config/Ghost Handler/`
+and cached map tiles are kept):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Sai-Tolle/Ghost-Controller-/main/install.sh | bash
+```
+
+Your version is shown at the bottom of the **GHOST CONTROLLER ▾** menu. The
+AppImage also embeds an AppImageUpdate feed, so delta updates work if you have
+that tool:
+
+```bash
+appimageupdatetool ~/Applications/Ghost_Controller-x86_64.AppImage
+```
+
+On a Raspberry Pi (source install) the same installer command updates the
+checkout (`git pull`) and its Python dependencies, keeping `backend/gcs.env`.
 
 **Not on your distro's list?** Any x86_64 Linux with glibc works (Ubuntu
 20.04+, Debian 11+, Fedora, Arch…). Testers on Windows/macOS: use a laptop
@@ -85,6 +101,9 @@ The heavy dependencies (Qt/PySide6, numpy, PyAV, OpenCV) have **no pip
 wheels for ARM64** — pip would try to compile them from source (hours).
 They come from `apt` instead; pip only installs the pure-Python remainder.
 
+Run first:
+
+sudo apt full-upgrade
 **One-line setup** (same steps as below, automated):
 
 ```bash

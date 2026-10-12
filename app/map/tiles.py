@@ -59,6 +59,25 @@ _MAGIC = b"PMTiles"
 _COMPRESSION_NONE = 0x01
 _COMPRESSION_GZIP = 0x02
 
+# Map archives are operator-supplied files. Every size below comes straight
+# from the file, so cap them: a crafted archive must not be able to make the
+# app allocate gigabytes (declared lengths, gzip bombs, huge entry counts).
+_MAX_DIR_BYTES = 16 * 1024 * 1024       # compressed directory / metadata blob
+_MAX_DIR_RAW_BYTES = 64 * 1024 * 1024   # after gzip
+_MAX_DIR_ENTRIES = 2_000_000
+_MAX_TILE_BYTES = 8 * 1024 * 1024
+
+
+def _gunzip(buf: bytes, limit: int = _MAX_DIR_RAW_BYTES) -> bytes:
+    """gzip.decompress with an output cap (decompression-bomb guard)."""
+    import zlib
+
+    d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    out = d.decompress(buf, limit + 1)
+    if len(out) > limit:
+        raise ValueError("PMTiles directory exceeds the size limit")
+    return out
+
 
 def _varint(buf: bytes, pos: int) -> tuple[int, int]:
     """Read a LEB128 little-endian variable-width int. Returns (value, new_pos)."""
@@ -71,15 +90,20 @@ def _varint(buf: bytes, pos: int) -> tuple[int, int]:
         if not (b & 0x80):
             return result, pos
         shift += 7
+        if shift > 63:
+            raise ValueError("malformed varint in PMTiles directory")
 
 
 def _decode_directory(buf: bytes, compression: int) -> list[dict]:
     if compression == _COMPRESSION_GZIP:
-        buf = gzip.decompress(buf)
+        buf = _gunzip(buf)
     elif compression not in (_COMPRESSION_NONE,):
         raise ValueError(f"Unsupported PMTiles directory compression: {compression}")
 
     n, pos = _varint(buf, 0)
+    # Each entry needs at least 4 bytes (one per varint column).
+    if n > _MAX_DIR_ENTRIES or n * 4 > len(buf):
+        raise ValueError("PMTiles directory entry count is not plausible")
     ids: list[int] = []
     for _ in range(n):
         v, pos = _varint(buf, pos)
@@ -155,15 +179,20 @@ class PmtilesSource:
         self._root: list[dict] = self._read_dir(self._root_off, self._root_len)
 
     def _read_dir(self, offset: int, length: int) -> list[dict]:
+        if length > _MAX_DIR_BYTES:
+            raise ValueError("PMTiles directory exceeds the size limit")
         self._fh.seek(offset)
         return _decode_directory(self._fh.read(length), self._internal_compression)
 
     def metadata(self) -> dict:
-        self._fh.seek(self._meta_off)
-        raw = self._fh.read(self._meta_len)
-        if self._internal_compression == _COMPRESSION_GZIP:
-            raw = gzip.decompress(raw)
+        if self._meta_len > _MAX_DIR_BYTES:
+            return {}
         try:
+            with self._io_lock:
+                self._fh.seek(self._meta_off)
+                raw = self._fh.read(self._meta_len)
+            if self._internal_compression == _COMPRESSION_GZIP:
+                raw = _gunzip(raw)
             return json.loads(raw)
         except Exception:
             return {}
@@ -208,6 +237,8 @@ class PmtilesSource:
                 return None
         if entry["run_length"] == 0:
             return None
+        if entry["length"] > _MAX_TILE_BYTES:
+            return None
         self._fh.seek(self._tile_off + entry["offset"])
         return self._fh.read(entry["length"])
 
@@ -248,7 +279,10 @@ class MbtilesSource:
                 "SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?",
                 (z, x, tms_y),
             ).fetchone()
-        return row[0] if row else None
+        data = row[0] if row else None
+        if not isinstance(data, (bytes, bytearray)) or len(data) > _MAX_TILE_BYTES:
+            return None
+        return bytes(data)
 
     def close(self) -> None:
         try:
@@ -277,9 +311,12 @@ class XyzDirSource:
 
     def tile(self, z: int, x: int, y: int) -> bytes | None:
         for ext in self._EXTS:
-            p = self._root / str(z) / str(x) / f"{y}{ext}"
-            if p.exists():
-                return p.read_bytes()
+            p = self._root / str(int(z)) / str(int(x)) / f"{int(y)}{ext}"
+            try:
+                if p.is_file() and p.stat().st_size <= _MAX_TILE_BYTES:
+                    return p.read_bytes()
+            except OSError:
+                continue
         return None
 
 

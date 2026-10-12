@@ -10,15 +10,29 @@ from pathlib import Path
 
 APP_ROOT = Path(SPECPATH).parent
 
+# backend/gcs.env is a LOCAL, untracked config file (it can hold API keys and
+# camera URLs with passwords). Ship the backend without it and without caches.
+def _backend_datas():
+    out = []
+    for path in (APP_ROOT / "backend").rglob("*"):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        if path.name == "gcs.env" or path.suffix == ".pyc":
+            continue
+        out.append((str(path), str(path.parent.relative_to(APP_ROOT))))
+    return out
+
+
 a = Analysis(
     [str(APP_ROOT / "main.py")],
     pathex=[str(APP_ROOT)],
     binaries=[],
-    datas=[
-        (str(APP_ROOT / "backend"), "backend"),
+    datas=_backend_datas() + [
         (str(APP_ROOT / "qml"), "qml"),
         (str(APP_ROOT / "design"), "design"),
         (str(APP_ROOT / "assets"), "assets"),
+        # AppInfo reads the version shown in the UI from here.
+        (str(APP_ROOT / "pyproject.toml"), "."),
     ],
     # pymavlink bundling: the vendored backend imports `from pymavlink import
     # mavutil` and uses `mavutil.mavlink` (a MAVLink dialect) + the DFReader /

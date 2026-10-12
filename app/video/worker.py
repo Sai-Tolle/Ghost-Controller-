@@ -69,6 +69,23 @@ class FrameHub:
             return time.time() - self._ts
 
 
+def redact_url(url: str) -> str:
+    """Hide the password of rtsp://user:pass@host/... for anything shown on
+    screen or printed; camera credentials must not end up in screenshots,
+    screen recordings or field logs."""
+    try:
+        parts = urlsplit(url)
+        if not parts.password:
+            return url
+        host = parts.hostname or ""
+        if ":" in host:
+            host = f"[{host}]"
+        netloc = f"{parts.username or ''}:***@{host}" + (f":{parts.port}" if parts.port else "")
+        return parts._replace(netloc=netloc).geturl()
+    except ValueError:
+        return "<invalid url>"
+
+
 def _tcp_reachable(host: str, port: int, timeout: float = 1.0) -> bool:
     """Cheap TCP pre-check before an expensive RTSP/HTTP handshake (same
     trick as GCS/video/source_detector.py)."""
@@ -161,14 +178,30 @@ class VideoWorker:
             self._hub.last_error = f"rtp: PyAV unavailable ({exc})"
             self._stop.wait(2.0)
             return
-        sdp_path = os.path.join(tempfile.gettempdir(), f"gh_video_rtp_{os.getpid()}.sdp")
+        if not 1 <= port <= 65535:
+            self._hub.last_error = f"rtp: invalid UDP port {port}"
+            self._stop.wait(2.0)
+            return
+        # mkstemp (O_EXCL, 0600, random name): the old fixed name in /tmp could
+        # be pre-created as a symlink by another local user, making this app
+        # overwrite a file of the operator's, or swapped for a hostile SDP.
         try:
-            with open(sdp_path, "w") as fh:
+            fd, sdp_path = tempfile.mkstemp(prefix="gh_video_rtp_", suffix=".sdp")
+            with os.fdopen(fd, "w") as fh:
                 fh.write(SDP_TEMPLATE.format(port=port))
         except OSError as exc:
             self._hub.last_error = f"rtp: cannot write SDP file ({exc})"
             self._stop.wait(2.0)
             return
+        try:
+            self._demux_rtp(av, sdp_path, port)
+        finally:
+            try:
+                os.unlink(sdp_path)
+            except OSError:
+                pass
+
+    def _demux_rtp(self, av, sdp_path: str, port: int) -> None:
         while not self._stop.is_set() and not self._wake.is_set():
             try:
                 container = av.open(
@@ -242,6 +275,13 @@ class VideoWorker:
         from urllib.request import urlopen
 
         buf = b""
+        # urlopen also speaks file:// and ftp://. The controller validates the
+        # scheme, but a URL restored from the settings file never went through
+        # it, so enforce it at the point of use.
+        if urlsplit(url).scheme.lower() not in ("http", "https"):
+            self._hub.last_error = "mjpeg: URL must start with http:// or https://"
+            self._stop.wait(2.0)
+            return
         while not self._stop.is_set() and not self._wake.is_set():
             try:
                 # stdlib streaming GET — no requests dependency; the multipart
@@ -290,7 +330,14 @@ class VideoWorker:
         switches source — a single failed open must not dead the family."""
         while not self._stop.is_set() and not self._wake.is_set():
             try:
-                if isinstance(source, str) and source.startswith("rtsp://"):
+                if api_preference == cv2.CAP_FFMPEG and not (
+                        isinstance(source, str) and source.lower().startswith(("rtsp://", "rtsps://"))):
+                    # FFmpeg would happily open local files, concat: or
+                    # subfile: here; this path is for network cameras only.
+                    self._hub.last_error = "rtsp: URL must start with rtsp://"
+                    self._stop.wait(2.0)
+                    return
+                if isinstance(source, str) and source.lower().startswith("rtsp://"):
                     parts = urlsplit(source)
                     if parts.hostname and not _tcp_reachable(parts.hostname, parts.port or 554):
                         self._hub.last_error = f"rtsp host unreachable: {parts.hostname}:{parts.port or 554}"
@@ -298,7 +345,7 @@ class VideoWorker:
                         continue
                 cap = cv2.VideoCapture(source, api_preference)
                 if not cap.isOpened():
-                    self._hub.last_error = f"open failed: {source} (retrying)"
+                    self._hub.last_error = f"open failed: {redact_url(str(source))} (retrying)"
                     self._stop.wait(1.0)
                     continue
             except Exception as exc:  # noqa: BLE001

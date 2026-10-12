@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QFontDatabase
+from PySide6.QtGui import QGuiApplication, QFontDatabase, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 # Import QtQuick Python bindings BEFORE engine.load: PySide6 registers wrapper
 # types lazily per Python import. Without this, QML-created windows surface as
@@ -80,6 +80,11 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
     app.setApplicationName("Ghost Controller")
     app.setApplicationDisplayName("Ghost Controller")
     app.setOrganizationName("Ghost Handler")
+    # Taskbar / alt-tab icon, and the desktop-entry association Wayland uses.
+    app.setDesktopFileName("ghost-handler")
+    icon_path = app_root / "design" / "icon-256.png"
+    if icon_path.is_file():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     _load_bundled_fonts(app_root)
 
@@ -211,7 +216,10 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
                 try:
                     out.mkdir(exist_ok=True)
                 except OSError:
-                    smoke_path = Path("/tmp") / "ghost-handler-smoke.png"
+                    # Private random directory, not a fixed /tmp name another
+                    # local user could have pre-created as a symlink.
+                    import tempfile
+                    smoke_path = Path(tempfile.mkdtemp(prefix="ghost-handler-smoke-")) / "smoke.png"
                 ok = img.save(str(smoke_path))
                 print(f"SMOKE: window title={window.title()!r} image={img.width()}x{img.height()} saved={ok} -> {smoke_path}")
                 result["ok"] = bool(ok) and img.width() > 0

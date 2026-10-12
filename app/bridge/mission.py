@@ -19,6 +19,7 @@ Payload shape (mirrors GCS/mavlink/mission_upload.py command_map):
 from __future__ import annotations
 
 import json
+import math
 import threading
 from pathlib import Path
 
@@ -32,6 +33,51 @@ DEFAULT_WP_ALT = 30.0
 COMMANDS = ("WAYPOINT", "TAKEOFF", "LAND", "RTL", "ORBIT", "SURVEY", "LOITER_TO_ALT")
 
 _EARTH_RADIUS_M = 6378137.0  # web MissionPlanner.tsx offsetToLatLon
+
+# Plan files are untrusted input (shared between operators, downloaded, mailed)
+# and what they contain is uploaded to the vehicle, so they are bounded here.
+MAX_PLAN_FILE_BYTES = 4 * 1024 * 1024
+MAX_WAYPOINTS = 2000
+MAX_FENCE_POINTS = 500
+MAX_ALT_M = 10000.0
+
+
+def _finite(value, lo: float, hi: float) -> float:
+    """float(value) if it is a finite number inside [lo, hi]; else ValueError.
+    json.loads accepts NaN/Infinity/1e999, and bool is an int subclass."""
+    if isinstance(value, bool):
+        raise ValueError("not a number")
+    v = float(value)
+    if not math.isfinite(v) or not lo <= v <= hi:
+        raise ValueError("out of range")
+    return v
+
+
+def _has_position(wp) -> bool:
+    """True when an imported item carries a usable lat/lon (RTL needs none).
+    Items without one are DROPPED on import: defaulting them to 0,0 would put
+    a waypoint in the Gulf of Guinea and send the vehicle there."""
+    if not isinstance(wp, dict):
+        return False
+    if str(wp.get("command", "")).upper() == "RTL":
+        return True
+    try:
+        _finite(wp.get("lat"), -90.0, 90.0)
+        _finite(wp.get("lon"), -180.0, 180.0)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _read_plan_text(path: str) -> str:
+    """Read a plan file, refusing anything that is not a small regular file
+    (a FIFO or /dev/zero would hang or exhaust memory on the GUI thread)."""
+    p = Path(path)
+    if not p.is_file():
+        raise OSError("not a regular file")
+    if p.stat().st_size > MAX_PLAN_FILE_BYTES:
+        raise OSError("file too large")
+    return p.read_text(encoding="utf-8", errors="replace")
 
 
 def _offset_to_latlon(clat: float, clon: float, dx: float, dy: float) -> tuple[float, float]:
@@ -85,8 +131,10 @@ def _fence_latlon(p) -> list[float]:
     """Fence point as [lat, lon]; accepts both the backend download shape
     ({lat, lon}) and the desktop plan shape ([lat, lon])."""
     if isinstance(p, dict):
-        return [float(p.get("lat", 0.0)), float(p.get("lon", p.get("lng", 0.0)))]
-    return [float(p[0]), float(p[1])]
+        lat, lon = p.get("lat"), p.get("lon", p.get("lng"))
+    else:
+        lat, lon = p[0], p[1]
+    return [_finite(lat, -90.0, 90.0), _finite(lon, -180.0, 180.0)]
 
 
 def point_inside_fence(lat: float, lon: float, fence: list) -> bool:
@@ -159,8 +207,17 @@ class MissionController(QObject):
                 data = json.loads(raw)
             except ValueError:
                 continue
-            if isinstance(data, list):
-                setattr(self, attr, data)
+            if not isinstance(data, list):
+                continue
+            # QSettings is a plain user-writable file: re-validate on load.
+            if attr == "_waypoints":
+                data = [self._sanitize_wp(w, i) for i, w in enumerate(data[:MAX_WAYPOINTS])]
+            else:
+                try:
+                    data = [_fence_latlon(p) for p in data[:MAX_FENCE_POINTS]]
+                except (TypeError, ValueError, IndexError, KeyError):
+                    data = []
+            setattr(self, attr, data)
 
     def _save(self) -> None:
         """Coalesce writes: dragging a marker fired a disk sync per mouse move."""
@@ -215,7 +272,10 @@ class MissionController(QObject):
             elif command == "FENCE_DOWNLOAD" and ok:
                 pts = result.get("fence")
                 if isinstance(pts, list):
-                    self._fence = [_fence_latlon(p) for p in pts]
+                    try:
+                        self._fence = [_fence_latlon(p) for p in pts[:MAX_FENCE_POINTS]]
+                    except (TypeError, ValueError, IndexError, KeyError):
+                        self._fence = []          # vehicle sent a malformed vertex
                     self._save()
                     self.fenceChanged.emit()
             elif command == "ORBIT":
@@ -228,19 +288,21 @@ class MissionController(QObject):
 
     @staticmethod
     def _sanitize_wp(wp: dict, index: int) -> dict:
+        if not isinstance(wp, dict):
+            wp = {}
         command = str(wp.get("command", "WAYPOINT")).upper()
         if command not in COMMANDS:
             command = "WAYPOINT"
         try:
-            lat = float(wp.get("lat"))
+            lat = _finite(wp.get("lat"), -90.0, 90.0)
         except (TypeError, ValueError):
             lat = 0.0
         try:
-            lon = float(wp.get("lon"))
+            lon = _finite(wp.get("lon"), -180.0, 180.0)
         except (TypeError, ValueError):
             lon = 0.0
         try:
-            alt = float(wp.get("alt", wp.get("altitude", DEFAULT_WP_ALT)))
+            alt = _finite(wp.get("alt", wp.get("altitude", DEFAULT_WP_ALT)), 0.0, MAX_ALT_M)
         except (TypeError, ValueError):
             alt = DEFAULT_WP_ALT
         return {"seq": index, "command": command, "lat": lat, "lon": lon, "alt": alt}
@@ -401,9 +463,8 @@ class MissionController(QObject):
 
             p = unquote(urlsplit(p).path)
         try:
-            with open(p, encoding="utf-8") as fh:
-                data = json.loads(fh.read())
-        except (OSError, ValueError):
+            data = json.loads(_read_plan_text(p))
+        except (OSError, ValueError, RecursionError):
             self._last_result = {"command": "IMPORT", "result": {"success": False,
                                                                  "error": f"cannot read {p}"}}
             self.lastResultChanged.emit()
@@ -416,10 +477,11 @@ class MissionController(QObject):
         # Only replace what the file actually contains. Importing a fence-only
         # file used to wipe the whole mission.
         if isinstance(items, list):
+            items = [w for w in items[:MAX_WAYPOINTS] if _has_position(w)]
             self._waypoints = [self._sanitize_wp(w, i) for i, w in enumerate(items)]
         if isinstance(fence, list):
             try:
-                self._fence = [_fence_latlon(p_) for p_ in fence]
+                self._fence = [_fence_latlon(p_) for p_ in fence[:MAX_FENCE_POINTS]]
             except (TypeError, ValueError, IndexError, KeyError):
                 self._fence = []
         self._selected = -1
@@ -637,7 +699,7 @@ class MissionController(QObject):
 
             p = unquote(urlsplit(p).path)
         try:
-            lines = Path(p).read_text(encoding="utf-8", errors="replace").splitlines()
+            lines = _read_plan_text(p).splitlines()
         except OSError:
             self._last_result = {"command": "IMPORT",
                                  "result": {"success": False, "error": f"cannot read {p}"}}
@@ -663,6 +725,7 @@ class MissionController(QObject):
             elif mav_cmd == 21:
                 command = "LAND"
             parsed.append({"lat": lat, "lon": lon, "alt": alt, "command": command})
+        parsed = [w for w in parsed[:MAX_WAYPOINTS] if _has_position(w)]
         self._waypoints = [self._sanitize_wp(w, i) for i, w in enumerate(parsed)]
         self._selected = -1
         self._save()

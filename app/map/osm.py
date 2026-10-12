@@ -35,6 +35,30 @@ from pathlib import Path
 OSM_TILE_URL = os.environ.get("GH_OSM_TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
 DEFAULT_UA = "GhostHandlerDesktop/1.0 (ground control station; contact: operator@local)"
 NEGATIVE_TTL = 30.0  # seconds a failed tile stays "known missing"
+MAX_TILE_BYTES = 4 * 1024 * 1024  # a 256px PNG is ~20-60 kB; never buffer more than this
+
+
+def _read_capped(resp) -> bytes:
+    """Read a tile response without trusting the server for its size."""
+    data = resp.read(MAX_TILE_BYTES + 1)
+    if len(data) > MAX_TILE_BYTES:
+        raise OSError("tile response too large")
+    return data
+
+
+def _private_dir(path: Path) -> bool:
+    """Create `path` (0700) and confirm it is a real directory we own."""
+    try:
+        path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        st = path.lstat()
+        import stat as _stat
+        if not _stat.S_ISDIR(st.st_mode):
+            return False
+        if hasattr(os, "getuid") and st.st_uid != os.getuid():
+            return False
+        return True
+    except OSError:
+        return False
 
 # ONE TLS context for every tile. urlopen() used to build a fresh context per
 # tile, and loading the system CA store holds the Python GIL for tens of ms:
@@ -65,13 +89,13 @@ class OsmTileFetcher:
         else:
             base = os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
             root = Path(base) / "ghost-handler" / "osm-tiles"
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-        except OSError:
+        if not _private_dir(root):
             # QML now loads tiles straight from this folder, so it must exist.
+            # mkdtemp (random name, 0700) instead of a fixed /tmp path: on a
+            # shared machine another user could pre-create a predictable
+            # directory and feed this app their own map tiles.
             import tempfile
-            root = Path(tempfile.gettempdir()) / "ghost-handler-osm-tiles"
-            root.mkdir(parents=True, exist_ok=True)
+            root = Path(tempfile.mkdtemp(prefix="ghost-handler-osm-"))
         self._cache_dir = root
         self._neg: dict[tuple[int, int, int], float] = {}
         self._mem: dict[tuple[int, int, int], bytes] = {}
@@ -271,13 +295,15 @@ class OsmTileFetcher:
     def _get(self, url: str, fresh: bool) -> bytes:
         """GET over a per-thread persistent connection (proxy-aware fallback)."""
         u = urllib.parse.urlsplit(url)
+        if u.scheme not in ("http", "https"):
+            raise OSError(f"unsupported tile URL scheme: {u.scheme!r}")
         host = u.hostname or ""
         proxies = urllib.request.getproxies()
         if proxies.get(u.scheme) and not urllib.request.proxy_bypass(host):
             req = urllib.request.Request(url, headers={"User-Agent": self._ua,
                                                        "Accept": "image/png,image/*;q=0.8"})
             with self._opener.open(req, timeout=2.5) as resp:
-                return resp.read()
+                return _read_capped(resp)
         key = (u.scheme, host, u.port)
         conns = getattr(self._local, "conns", None)
         if conns is None:
@@ -294,7 +320,7 @@ class OsmTileFetcher:
             conn.request("GET", path, headers={"User-Agent": self._ua, "Accept": "image/png,image/*;q=0.8",
                                                "Connection": "keep-alive"})
             resp = conn.getresponse()
-            data = resp.read()
+            data = _read_capped(resp)
         except Exception:
             conn.close()
             conns.pop(key, None)
