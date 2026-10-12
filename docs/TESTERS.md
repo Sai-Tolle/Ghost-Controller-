@@ -81,8 +81,8 @@ appimageupdatetool ~/Applications/Ghost_Controller-x86_64.AppImage
 On a Raspberry Pi (source install) the same installer command updates the
 checkout (`git pull`) and its Python dependencies, keeping `backend/gcs.env`.
 
-**Not on your distro's list?** Any x86_64 Linux with glibc works (Ubuntu
-20.04+, Debian 11+, Fedora, Arch…). Testers on Windows/macOS: use a laptop
+**Not on your distro's list?** Any x86_64 Linux with glibc 2.35 or newer
+works (Ubuntu 22.04+, Debian 12+, current Fedora, Arch…). Testers on Windows/macOS: use a laptop
 with Ubuntu live USB instead — this build is Linux-only.
 
 ---

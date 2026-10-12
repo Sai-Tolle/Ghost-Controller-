@@ -1,7 +1,12 @@
 # Build both AppImage architectures and ship them together on one release.
 #
-# x86_64: GitHub's ubuntu-24.04 runner — PyPI has x86_64 wheels for
+# x86_64: GitHub's ubuntu-22.04 runner — PyPI has x86_64 wheels for
 #          PySide6/numpy/PyAV/OpenCV, so the normal pip venv path works.
+#          Deliberately the OLDEST available runner: PyInstaller bundles the
+#          build host's libpython, which needs the host's glibc or newer. Built
+#          on 24.04 (glibc 2.39) the AppImage died on Ubuntu 22.04 with
+#          "GLIBC_2.38 not found"; built on 22.04 (glibc 2.35) it runs on
+#          22.04 and everything newer.
 # aarch64: ubuntu-24.04-arm runner (free for public repos) + Debian trixie
 #          container — Ubuntu 24.04 has no python3-pyside6 package and PyPI
 #          has NO aarch64 wheels for those four, but trixie ships them as
@@ -27,7 +32,7 @@ permissions:
 
 jobs:
   x86_64-appimage:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     env:
