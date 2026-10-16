@@ -11,10 +11,10 @@ Rectangle {
 
     width: 304
     height: col.implicitHeight + 28
-    radius: 14
+    radius: Token.dimension_radius_xl
     color: Token.color_ui_glassStrong
     border.width: 1
-    border.color: Token.color_ui_lineStrong
+    border.color: Token.color_ui_line
     opacity: open ? 1.0 : 0.0
     visible: opacity > 0.01
     enabled: open
@@ -47,30 +47,22 @@ Rectangle {
                 Rectangle {
                     width: 26; height: 26; radius: 8
                     color: Token.color_ui_accentSoft
-                    Canvas {
-                        anchors.centerIn: parent; width: 16; height: 14
-                        onPaint: {
-                            var c = getContext("2d"); c.reset()
-                            c.strokeStyle = "#A9D2FF"; c.lineWidth = 1.6; c.lineJoin = "round"
-                            c.strokeRect(1, 2, 9, 9)
-                            c.beginPath(); c.moveTo(10, 5); c.lineTo(15, 2.5); c.lineTo(15, 10.5); c.lineTo(10, 8); c.stroke()
-                        }
-                    }
+                    Icon { anchors.centerIn: parent; name: "video"; size: 16; color: Token.color_accent_primary }
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "VIDEO SOURCE"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 12; font.weight: Font.Bold; font.letterSpacing: 2
+                    text: "Video Source"
+                    font.pixelSize: 15; font.weight: Font.DemiBold
                     color: Token.color_ui_text
                 }
             }
-            Text {
+            Rectangle {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                text: "✕"
-                font.pixelSize: 14
-                color: closeHover.hovered ? "#FFFFFF" : Token.color_ui_textDim
+                width: 22; height: 22; radius: 11
+                color: closeHover.hovered ? Token.color_ui_fillHover : Token.color_ui_fill
+                Icon { anchors.centerIn: parent; name: "xmark"; size: 12; weight: 1.8
+                       color: closeHover.hovered ? Token.color_ui_text : Token.color_ui_textDim }
                 HoverHandler { id: closeHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: root.closeRequested() }
             }
@@ -80,7 +72,7 @@ Rectangle {
             id: det
             width: parent.width; height: 52; radius: 9
             readonly property bool live: Video.state === "live"
-            color: live ? Token.color_ui_okSoft : Qt.rgba(1, 1, 1, 0.04)
+            color: live ? Token.color_ui_okSoft : Token.color_ui_fill
             border.width: 1
             border.color: live ? Token.color_ui_okLine : Token.color_ui_line
             Column {
@@ -93,20 +85,18 @@ Rectangle {
                     Rectangle { width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter
                                 color: det.live ? Token.color_status_ok : Token.color_text_muted }
                     Text {
-                        text: det.live ? "DETECTED" : "NO SOURCE DETECTED"
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 9; font.letterSpacing: 1.4; font.weight: Font.DemiBold
+                        text: det.live ? "Detected" : "No source detected"
+                        font.pixelSize: 11; font.weight: Font.DemiBold
                         color: det.live ? Token.color_status_ok : Token.color_ui_textDim
                     }
                 }
                 Text {
                     text: Video.state === "live"
-                          ? Video.sourceLabel.toUpperCase() + (Video.resolution !== "" ? "  ·  " + Video.resolution : "") + "  ·  " + Video.fps.toFixed(0) + " fps"
+                          ? Video.sourceLabel + (Video.resolution !== "" ? "  ·  " + Video.resolution : "") + "  ·  " + Video.fps.toFixed(0) + " fps"
                           : Video.label
                     elide: Text.ElideRight
                     width: 260
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 11; font.weight: Font.Bold
+                    font.pixelSize: 12; font.weight: Font.DemiBold
                     color: Token.color_ui_text
                 }
             }
@@ -125,7 +115,7 @@ Rectangle {
                 width: col.width
                 height: cardCol.implicitHeight + 16
                 radius: 9
-                color: selected ? Token.color_ui_accentSoft : Qt.rgba(1, 1, 1, cardHover.hovered ? 0.06 : 0.03)
+                color: selected ? Token.color_ui_accentSoft : (cardHover.hovered ? Token.color_ui_fillHover : Token.color_ui_fill)
                 border.width: 1
                 border.color: selected ? Token.color_ui_accentLine : Token.color_ui_line
 
@@ -144,8 +134,7 @@ Rectangle {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: card.modelData.label
-                                font.family: Token.typography_familyMono
-                                font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1.6
+                                font.pixelSize: 12; font.weight: Font.DemiBold
                                 color: Token.color_ui_text
                             }
                             Rectangle {
@@ -153,8 +142,8 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: urlTag.implicitWidth + 10; height: 14; radius: 3
                                 color: "transparent"; border.width: 1; border.color: Token.color_ui_okLine
-                                Text { id: urlTag; anchors.centerIn: parent; text: "CUSTOM URL"
-                                       font.family: Token.typography_familyMono; font.pixelSize: 8; color: Token.color_status_ok }
+                                Text { id: urlTag; anchors.centerIn: parent; text: "Custom URL"
+                                       font.pixelSize: 10; color: Token.color_status_ok }
                             }
                         }
                         Rectangle {
@@ -162,18 +151,10 @@ Rectangle {
                             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                             width: activeTag.implicitWidth + 12; height: 16; radius: 4
                             color: Token.color_accent_primary
-                            Text { id: activeTag; anchors.centerIn: parent; text: "ACTIVE"
-                                   font.family: Token.typography_familyMono; font.pixelSize: 8
-                                   font.weight: Font.Bold; font.letterSpacing: 1.2; color: "#FFFFFF" }
+                            Text { id: activeTag; anchors.centerIn: parent; text: "Active"
+                                   font.pixelSize: 10
+                                   font.weight: Font.DemiBold; color: Token.color_ui_text }
                         }
-                    }
-                    Text {
-                        width: parent.width
-                        text: card.modelData.hint
-                        wrapMode: Text.WordWrap
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 10
-                        color: card.selected ? Token.color_text_secondary : Token.color_ui_textDim
                     }
                     Row {
                         visible: card.urlEditable
@@ -185,16 +166,15 @@ Rectangle {
                             height: 28
                             selectByMouse: true
                             color: Token.color_ui_text
-                            font.family: Token.typography_familyMono
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             placeholderText: card.customUrl !== "" ? card.customUrl
                                            : (card.mode === "rtsp" ? "rtsp://user:pass@host:554/stream" : "http://host:8080/video")
                             placeholderTextColor: Token.color_text_muted
                             leftPadding: 8
                             background: Rectangle {
-                                radius: 6; color: Qt.rgba(0, 0, 0, 0.25)
-                                border.width: 1
-                                border.color: urlInput.activeFocus ? Token.color_accent_primary : Token.color_ui_line
+                                radius: 7; color: Token.color_ui_fill
+                                border.width: urlInput.activeFocus ? 2 : 0
+                                border.color: Qt.alpha(Token.color_accent_primary, 0.8)
                             }
                             function commit() {
                                 var v = text.trim()
@@ -205,9 +185,9 @@ Rectangle {
                             }
                             Keys.onReturnPressed: commit()
                         }
-                        TextButton { id: setBtn; label: "SET"; tone: "primary"; height: 28; onClicked: urlInput.commit() }
+                        TextButton { id: setBtn; label: "Set"; tone: "primary"; height: 28; onClicked: urlInput.commit() }
                         TextButton {
-                            id: clearBtn; visible: card.customUrl !== ""; label: "✕"; tone: "danger"; height: 28
+                            id: clearBtn; visible: card.customUrl !== ""; label: "Clear"; tone: "danger"; height: 28
                             onClicked: { Video.setCustomUrl(card.mode, ""); root.showFeedback(card.mode.toUpperCase() + " URL cleared", true) }
                         }
                     }
@@ -235,9 +215,8 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 text: root.feedbackMsg
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9; font.letterSpacing: 0.8
-                color: root.feedbackOk ? Token.color_status_ok : "#FF8A8A"
+                font.pixelSize: 11
+                color: root.feedbackOk ? Token.color_status_ok : "#FF6961"
             }
         }
     }

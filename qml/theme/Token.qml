@@ -2,40 +2,45 @@
 import QtQuick
 
 QtObject {
-    readonly property color color_base_bg: "#1A2744"
-    readonly property color color_base_surface: "#10161F"
-    readonly property color color_base_surfaceRaised: "#161F2B"
-    readonly property color color_base_surfaceOverlay: "#0D141D"
-    readonly property color color_base_border: "#233042"
-    readonly property color color_base_borderStrong: "#33445C"
-    readonly property color color_hud_topbarBg: "#0A1628"
-    readonly property string color_hud_topbarBorder: "rgba(0,102,255,0.4)"
-    readonly property color color_hud_panelBg: "#08122A"
-    readonly property string color_hud_panelBgSoft: "rgba(8,18,42,0.92)"
-    readonly property color color_hud_panelBorder: "#0046BE"
-    readonly property color color_hud_hudLine: "#0066FF"
-    readonly property color color_hud_hudGlow: "#0088FF"
-    readonly property color color_hud_hudLabel: "#60AAFF"
-    readonly property color color_hud_readoutDim: "#0033AA"
+    // Active theme: "dark" (default) or a key of tokens.json `themes`.
+    // Set by app/bridge/theme.py from the operator's preference.
+    property string theme: "dark"
+    readonly property color color_base_bg: theme === "light" ? "#F2F2F7" : "#000000"
+    readonly property color color_base_surface: theme === "light" ? "#FFFFFF" : "#1C1C1E"
+    readonly property color color_base_surfaceRaised: theme === "light" ? "#F2F2F7" : "#2C2C2E"
+    readonly property color color_base_surfaceOverlay: theme === "light" ? "#E5E5EA" : "#3A3A3C"
+    readonly property color color_base_border: theme === "light" ? "#1F000000" : "#1FFFFFFF"
+    readonly property color color_base_borderStrong: theme === "light" ? "#33000000" : "#33FFFFFF"
+    readonly property color color_hud_topbarBg: theme === "light" ? "#F2F7F7F9" : "#F2161618"
+    readonly property string color_hud_topbarBorder: "rgba(255,255,255,0.10)"
+    readonly property color color_hud_panelBg: theme === "light" ? "#FFFFFF" : "#1C1C1E"
+    readonly property string color_hud_panelBgSoft: "rgba(28,28,30,0.82)"
+    readonly property color color_hud_panelBorder: theme === "light" ? "#1F000000" : "#1FFFFFFF"
+    readonly property color color_hud_hudLine: "#FFFFFF"
+    readonly property color color_hud_hudGlow: theme === "light" ? "#007AFF" : "#0A84FF"
+    readonly property color color_hud_hudLabel: theme === "light" ? "#993C3C43" : "#99EBEBF5"
+    readonly property color color_hud_readoutDim: theme === "light" ? "#4D3C3C43" : "#4DEBEBF5"
     readonly property color color_hud_videoBg: "#000000"
     readonly property color color_hud_horizonSky: "#7EC0EE"
     readonly property color color_hud_horizonGround: "#B8956A"
-    readonly property color color_accent_primary: "#0066FF"
-    readonly property color color_accent_primaryDim: "#0046BE"
-    readonly property color color_accent_secondary: "#A78BFA"
-    readonly property color color_accent_action: "#2F80ED"
-    readonly property color color_status_ok: "#00C060"
-    readonly property color color_status_okAlt: "#00B050"
-    readonly property color color_status_warn: "#FF8C00"
-    readonly property color color_status_danger: "#E03030"
-    readonly property color color_status_info: "#00AAFF"
-    readonly property color color_status_idle: "#64748B"
-    readonly property color color_status_lime: "#39FF14"
-    readonly property color color_text_primary: "#FFFFFF"
-    readonly property color color_text_secondary: "#94A3B8"
-    readonly property color color_text_muted: "#64748B"
-    readonly property color color_text_onAccent: "#001A4D"
-    readonly property color color_text_disabled: "#64748B"
+    readonly property color color_hud_text: "#FFFFFF"
+    readonly property color color_hud_textShadow: "#8C000000"
+    readonly property color color_accent_primary: theme === "light" ? "#007AFF" : "#0A84FF"
+    readonly property color color_accent_primaryDim: theme === "light" ? "#0062CC" : "#0060D0"
+    readonly property color color_accent_secondary: theme === "light" ? "#AF52DE" : "#BF5AF2"
+    readonly property color color_accent_action: theme === "light" ? "#007AFF" : "#0A84FF"
+    readonly property color color_status_ok: theme === "light" ? "#34C759" : "#30D158"
+    readonly property color color_status_okAlt: theme === "light" ? "#34C759" : "#30D158"
+    readonly property color color_status_warn: theme === "light" ? "#FF9500" : "#FF9F0A"
+    readonly property color color_status_danger: theme === "light" ? "#FF3B30" : "#FF453A"
+    readonly property color color_status_info: theme === "light" ? "#32ADE6" : "#64D2FF"
+    readonly property color color_status_idle: theme === "light" ? "#8E8E93" : "#8E8E93"
+    readonly property color color_status_lime: theme === "light" ? "#34C759" : "#30D158"
+    readonly property color color_text_primary: theme === "light" ? "#000000" : "#FFFFFF"
+    readonly property color color_text_secondary: theme === "light" ? "#993C3C43" : "#99EBEBF5"
+    readonly property color color_text_muted: theme === "light" ? "#8E8E93" : "#8E8E93"
+    readonly property color color_text_onAccent: theme === "light" ? "#FFFFFF" : "#FFFFFF"
+    readonly property color color_text_disabled: theme === "light" ? "#4D3C3C43" : "#4DEBEBF5"
     readonly property color color_mission_planned: "#FF1414"
     readonly property color color_mission_flown: "#FF0000"
     readonly property color color_mission_fence: "#00E5E5"
@@ -49,57 +54,69 @@ QtObject {
     readonly property color color_gauge_skyHorizon: "#8B98A4"
     readonly property color color_gauge_ground: "#6E7450"
     readonly property color color_gauge_groundHorizon: "#3A3E2C"
-    readonly property color color_gauge_ladder: "#0066FF"
-    readonly property color color_gauge_needle: "#0066FF"
-    readonly property color color_gauge_tapeTick: "#0066FF"
+    readonly property color color_gauge_ladder: "#FFFFFF"
+    readonly property color color_gauge_needle: theme === "light" ? "#007AFF" : "#0A84FF"
+    readonly property color color_gauge_tapeTick: "#FFFFFF"
     readonly property color color_gauge_pointer: "#FFFFFF"
-    readonly property color color_ui_text: "#FFFFFF"
-    readonly property color color_ui_textDim: "#8292A8"
-    readonly property color color_ui_glass: "#10161F"
-    readonly property color color_ui_glassStrong: "#161F2B"
-    readonly property color color_ui_glassSolid: "#1A2744"
-    readonly property color color_ui_line: "#233042"
-    readonly property color color_ui_lineStrong: "#33445C"
-    readonly property color color_ui_accentLine: "#0046BE"
-    readonly property color color_ui_accentSoft: "#0E2A5C"
-    readonly property color color_ui_okSoft: "#00331A"
-    readonly property color color_ui_okLine: "#00C060"
-    readonly property color color_ui_warnSoft: "#3A2400"
-    readonly property color color_ui_dangerSoft: "#3A0E0E"
-    readonly property color color_ui_dangerLine: "#E03030"
-    readonly property real dimension_radius_sm: 4
-    readonly property real dimension_radius_md: 8
+    readonly property color color_ui_text: theme === "light" ? "#000000" : "#FFFFFF"
+    readonly property color color_ui_textDim: theme === "light" ? "#993C3C43" : "#99EBEBF5"
+    readonly property color color_ui_textTertiary: theme === "light" ? "#4D3C3C43" : "#4DEBEBF5"
+    readonly property color color_ui_glass: theme === "light" ? "#EBFAFAFC" : "#EB1C1C1E"
+    readonly property color color_ui_glassStrong: theme === "light" ? "#F7FFFFFF" : "#F72C2C2E"
+    readonly property color color_ui_glassSolid: theme === "light" ? "#FFFFFF" : "#1C1C1E"
+    readonly property color color_ui_fill: theme === "light" ? "#1F767680" : "#1FFFFFFF"
+    readonly property color color_ui_fillHover: theme === "light" ? "#2E767680" : "#2EFFFFFF"
+    readonly property color color_ui_fillPressed: theme === "light" ? "#42767680" : "#3DFFFFFF"
+    readonly property color color_ui_line: theme === "light" ? "#1F000000" : "#1AFFFFFF"
+    readonly property color color_ui_lineStrong: theme === "light" ? "#33000000" : "#2EFFFFFF"
+    readonly property color color_ui_accentLine: theme === "light" ? "#007AFF" : "#0A84FF"
+    readonly property color color_ui_accentSoft: theme === "light" ? "#26007AFF" : "#330A84FF"
+    readonly property color color_ui_okSoft: theme === "light" ? "#2634C759" : "#2630D158"
+    readonly property color color_ui_okLine: theme === "light" ? "#34C759" : "#30D158"
+    readonly property color color_ui_warnSoft: theme === "light" ? "#29FF9500" : "#26FF9F0A"
+    readonly property color color_ui_dangerSoft: theme === "light" ? "#1FFF3B30" : "#26FF453A"
+    readonly property color color_ui_dangerLine: theme === "light" ? "#FF3B30" : "#FF453A"
+    readonly property color color_ui_shadow: theme === "light" ? "#2E000000" : "#73000000"
+    readonly property color color_ui_segThumb: theme === "light" ? "#FFFFFF" : "#636366"
+    readonly property color color_ui_onTint: theme === "light" ? "#FFFFFF" : "#FFFFFF"
+    readonly property real dimension_radius_sm: 6
+    readonly property real dimension_radius_md: 10
     readonly property real dimension_radius_lg: 14
+    readonly property real dimension_radius_xl: 20
     readonly property real dimension_radius_pill: 999
     readonly property real dimension_spacing_xs: 4
     readonly property real dimension_spacing_sm: 8
-    readonly property real dimension_spacing_md: 14
-    readonly property real dimension_spacing_lg: 22
+    readonly property real dimension_spacing_md: 12
+    readonly property real dimension_spacing_lg: 20
     readonly property real dimension_spacing_xl: 32
     readonly property real dimension_border: 1
     readonly property real dimension_hud_tapeWidth: 92
-    readonly property real dimension_hud_topBarHeight: 48
+    readonly property real dimension_hud_topBarHeight: 52
     readonly property real dimension_hud_stripHeight: 72
     readonly property real dimension_hud_sidePanelWidth: 288
-    readonly property real dimension_hud_actionButtonHeight: 44
-    readonly property string typography_familyUi: "Roboto"
+    readonly property real dimension_hud_actionButtonHeight: 40
+    readonly property string typography_familyUi: "Inter"
     readonly property string typography_familyMono: "JetBrains Mono"
-    readonly property real typography_size_xs: 10
+    readonly property real typography_size_caption: 11
+    readonly property real typography_size_xs: 11
     readonly property real typography_size_sm: 12
-    readonly property real typography_size_md: 14
-    readonly property real typography_size_lg: 18
-    readonly property real typography_size_xl: 24
-    readonly property real typography_size_display: 32
+    readonly property real typography_size_md: 13
+    readonly property real typography_size_body: 13
+    readonly property real typography_size_lg: 15
+    readonly property real typography_size_xl: 20
+    readonly property real typography_size_title: 22
+    readonly property real typography_size_display: 28
     readonly property real typography_weight_regular: 400
     readonly property real typography_weight_medium: 500
+    readonly property real typography_weight_semibold: 600
     readonly property real typography_weight_bold: 700
-    readonly property real motion_fast: 120
-    readonly property real motion_normal: 220
-    readonly property real motion_slow: 400
-    readonly property real opacity_glass: 0.86
+    readonly property real motion_fast: 140
+    readonly property real motion_normal: 240
+    readonly property real motion_slow: 420
+    readonly property real opacity_glass: 0.85
     readonly property real opacity_chrome: 0.96
-    readonly property real opacity_hover: 0.06
-    readonly property real opacity_pressed: 0.12
-    readonly property real opacity_disabled: 0.4
+    readonly property real opacity_hover: 0.08
+    readonly property real opacity_pressed: 0.16
+    readonly property real opacity_disabled: 0.35
     readonly property real opacity_grid: 0.08
 }

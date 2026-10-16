@@ -145,7 +145,7 @@ class VideoController(QObject):
     @Property("QVariantList", constant=True)
     def modeHints(self) -> list:  # noqa: N802
         return [
-            {"mode": "auto", "label": "AUTO", "hint": "Listens for RTP on UDP 5600"},
+            {"mode": "auto", "label": "Automatic", "hint": "Listens for RTP on UDP 5600"},
             {"mode": "udp_rtp", "label": "RTP 5600", "hint": "PX4 SITL / drone H.264 on UDP 5600"},
             {"mode": "rtsp", "label": "RTSP", "hint": "rtsp://127.0.0.1:8554 or custom URL"},
             {"mode": "mjpeg", "label": "MJPEG", "hint": "http://192.168.4.1/vision or custom URL"},

@@ -14,7 +14,7 @@ Item {
     signal closeRequested()
 
     readonly property var tm: Telemetry.telemetry
-    readonly property real barH: 48
+    readonly property real barH: Token.dimension_hud_topBarHeight
 
     // ---- tool state (one active tool; clicking it again turns it off) ----------------
     property string tool: ""        // "" | orbit | survey | waypoint | fence | deleteWp | deleteFence
@@ -113,7 +113,7 @@ Item {
             if (!(w > 0 && h > 0)) return
             var corners = Mission.previewSurvey(root.surveyCenter.x, root.surveyCenter.y, w, h,
                                                 parseFloat(surveySpacing.value) || 1, isNaN(ang) ? 0 : ang, 0)
-            ctx.strokeStyle = "#5AA9FF"; ctx.lineWidth = 2; ctx.setLineDash([6, 5])
+            ctx.strokeStyle = "#0A84FF"; ctx.lineWidth = 2; ctx.setLineDash([6, 5])
             ctx.fillStyle = "rgba(90,169,255,0.10)"
             ctx.beginPath()
             for (var i = 0; i < corners.length; i++) {
@@ -141,30 +141,30 @@ Item {
         Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Token.color_ui_line }
 
         Row {
-            anchors.left: parent.left; anchors.leftMargin: 16
+            anchors.left: parent.left; anchors.leftMargin: 20
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: 10
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "MISSION PLANNER"
-                font.family: Token.typography_familyMono
-                font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 2.2
-                color: Token.color_accent_primary
+                text: "Mission Planner"
+                font.pixelSize: 14; font.weight: Font.DemiBold
+                color: Token.color_ui_text
+                rightPadding: 6
             }
             Rectangle { width: 1; height: 20; anchors.verticalCenter: parent.verticalCenter; color: Token.color_ui_line }
 
             PlannerDropdown {
                 objectName: "dropMission"
-                label: "MISSION"
+                label: "Mission"
                 anchors.verticalCenter: parent.verticalCenter
                 items: [
-                    { text: "↑  Import waypoints", action: "importMission" },
-                    { text: "↓  Export waypoints", action: "exportMission" },
+                    { text: "Import Waypoints…", action: "importMission", icon: "import" },
+                    { text: "Export Waypoints…", action: "exportMission", icon: "export" },
                     { sep: true },
-                    { text: "⬆  Upload to vehicle", action: "upload" },
-                    { text: "⬇  Download from vehicle", action: "download" },
+                    { text: "Upload to Vehicle", action: "upload", icon: "upload" },
+                    { text: "Download from Vehicle", action: "download", icon: "download" },
                     { sep: true },
-                    { text: "✕  Clear mission", action: "clearMission", danger: true }
+                    { text: "Clear Mission", action: "clearMission", danger: true, icon: "trash" }
                 ]
                 onAction: function(name) {
                     if (name === "importMission") missionImportDialog.open()
@@ -176,17 +176,17 @@ Item {
                 }
             }
             PlannerDropdown {
-                label: "FENCE"
+                label: "Fence"
                 cyan: true
                 anchors.verticalCenter: parent.verticalCenter
                 items: [
-                    { text: "↑  Import fence", action: "importFence" },
-                    { text: "↓  Export fence", action: "exportFence" },
+                    { text: "Import Fence…", action: "importFence", icon: "import" },
+                    { text: "Export Fence…", action: "exportFence", icon: "export" },
                     { sep: true },
-                    { text: "⬆  Upload to vehicle", action: "uploadFence" },
-                    { text: "⬇  Download from vehicle", action: "downloadFence" },
+                    { text: "Upload to Vehicle", action: "uploadFence", icon: "upload" },
+                    { text: "Download from Vehicle", action: "downloadFence", icon: "download" },
                     { sep: true },
-                    { text: "✕  Clear fence", action: "clearFence", danger: true }
+                    { text: "Clear Fence", action: "clearFence", danger: true, icon: "trash" }
                 ]
                 onAction: function(name) {
                     if (name === "importFence") fenceImportDialog.open()
@@ -203,8 +203,8 @@ Item {
             objectName: "plannerClose"
             anchors.right: parent.right; anchors.rightMargin: 14
             anchors.verticalCenter: parent.verticalCenter
-            label: "CLOSE"
-            tone: "danger"
+            label: "Done"
+            tone: "primary"
             height: 30; width: 76
             onClicked: root.closeRequested()           // signal, not Window.window.viewMode
         }
@@ -214,37 +214,37 @@ Item {
     Rectangle {
         anchors.top: topBar.bottom; anchors.topMargin: 14
         anchors.left: parent.left; anchors.leftMargin: 14
-        width: 156
-        height: toolsCol.implicitHeight + 24
-        radius: 12
+        width: 196
+        height: toolsCol.implicitHeight + 20
+        radius: Token.dimension_radius_lg
         color: Token.color_ui_glass
         border.width: 1; border.color: Token.color_ui_line
         z: 20
+        SoftShadow {}
         Column {
             id: toolsCol
-            anchors.fill: parent; anchors.margins: 12
-            spacing: 6
+            anchors.fill: parent; anchors.margins: 10
+            spacing: 2
             Text {
                 width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: "MAP TOOLS"
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9; font.letterSpacing: 2; font.weight: Font.DemiBold
+                leftPadding: 10; topPadding: 2
+                text: "Tools"
+                font.pixelSize: 12; font.weight: Font.DemiBold
                 color: Token.color_ui_textDim
                 bottomPadding: 4
             }
-            PlannerToolButton { width: parent.width; label: root.tool === "orbit" ? "LIVE ORBIT: ON" : "LIVE ORBIT"
-                                active: root.tool === "orbit"; activeColor: "#B38CFF"; onClicked: root.setTool("orbit") }
-            PlannerToolButton { width: parent.width; label: root.tool === "survey" ? "SURVEY: ON" : "ADD SURVEY"
-                                active: root.tool === "survey"; activeColor: "#5AA9FF"; onClicked: root.setTool("survey") }
-            PlannerToolButton { objectName: "toolWaypoint"; width: parent.width; label: root.tool === "waypoint" ? "ADD WP: ON" : "ADD WP"
-                                active: root.tool === "waypoint"; activeColor: "#5AA9FF"; onClicked: root.setTool("waypoint") }
-            PlannerToolButton { width: parent.width; label: root.tool === "fence" ? "DRAW FENCE: ON" : "DRAW FENCE"
-                                active: root.tool === "fence"; activeColor: "#5ADBFF"; onClicked: root.setTool("fence") }
-            PlannerToolButton { width: parent.width; label: root.tool === "deleteWp" ? "DEL WP: ON" : "DEL WP"
-                                active: root.tool === "deleteWp"; activeColor: "#FF7A7A"; onClicked: root.setTool("deleteWp") }
-            PlannerToolButton { width: parent.width; label: "DEL FENCE PT"
-                                active: root.tool === "deleteFence"; activeColor: "#FFB547"; onClicked: root.setTool("deleteFence") }
+            PlannerToolButton { width: parent.width; label: "Live Orbit"; icon: "orbit"
+                                active: root.tool === "orbit"; activeColor: Token.color_accent_secondary; onClicked: root.setTool("orbit") }
+            PlannerToolButton { width: parent.width; label: "Add Survey"; icon: "grid"
+                                active: root.tool === "survey"; activeColor: Token.color_accent_primary; onClicked: root.setTool("survey") }
+            PlannerToolButton { objectName: "toolWaypoint"; width: parent.width; label: "Add Waypoint"; icon: "pin"
+                                active: root.tool === "waypoint"; activeColor: Token.color_accent_primary; onClicked: root.setTool("waypoint") }
+            PlannerToolButton { width: parent.width; label: "Draw Fence"; icon: "fence"
+                                active: root.tool === "fence"; activeColor: Token.color_status_info; onClicked: root.setTool("fence") }
+            PlannerToolButton { width: parent.width; label: "Delete Waypoint"; icon: "trash"
+                                active: root.tool === "deleteWp"; activeColor: Token.color_status_danger; onClicked: root.setTool("deleteWp") }
+            PlannerToolButton { width: parent.width; label: "Delete Fence Point"; icon: "point.minus"
+                                active: root.tool === "deleteFence"; activeColor: Token.color_status_warn; onClicked: root.setTool("deleteFence") }
         }
     }
 
@@ -253,9 +253,9 @@ Item {
         visible: root.anyToolActive
         anchors.top: topBar.bottom; anchors.topMargin: 14
         anchors.horizontalCenter: parent.horizontalCenter
-        width: hintText.implicitWidth + 32; height: 28; radius: 14
+        width: hintText.implicitWidth + 36; height: 34; radius: 17
         color: Token.color_ui_glassStrong
-        border.width: 1; border.color: Token.color_ui_accentLine
+        border.width: 1; border.color: Token.color_ui_line
         z: 20
         Text {
             id: hintText
@@ -266,8 +266,7 @@ Item {
                 : root.tool === "waypoint" ? "Click the map to add waypoints"
                 : root.tool === "deleteWp" ? "Click a waypoint to delete it"
                 : root.tool === "survey" ? "Click the map to set the survey centre" : ""
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10; font.letterSpacing: 1
+            font.pixelSize: 11
             color: Token.color_accent_primary
         }
     }
@@ -275,12 +274,12 @@ Item {
     // ---- CONTEXT PANEL (one slot, top-right) ------------------------------------------------------------
     // survey
     CtxPanel {
-        shown: root.contextKind === "survey"; below: topBar; edge: Token.color_ui_accentLine
+        shown: root.contextKind === "survey"; below: topBar
         height: surveyCol.implicitHeight + 28
         Column {
             id: surveyCol
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            PanelTitle { text: "SURVEY GRID"; onClosed: root.setTool("survey") }
+            PanelTitle { text: "Survey Grid"; onClosed: root.setTool("survey") }
             LabeledNumber { id: surveyWidth;   title: "Grid width (m)";   value: "100"; onValueChanged: surveyCanvas.requestPaint() }
             LabeledNumber { id: surveyHeight;  title: "Grid height (m)";  value: "100"; onValueChanged: surveyCanvas.requestPaint() }
             LabeledNumber { id: surveySpacing; title: "Line spacing (m)"; value: "20";  onValueChanged: surveyCanvas.requestPaint() }
@@ -288,7 +287,7 @@ Item {
             LabeledNumber { id: surveyAlt;     title: "Altitude (m)";     value: "20" }
             TextButton {
                 width: parent.width; height: 32
-                label: "GENERATE GRID"; tone: "primary"
+                label: "Generate Grid"; tone: "primary"
                 onClicked: {
                     var sp = parseFloat(surveySpacing.value)
                     if (!(sp > 0) || !(parseFloat(surveyWidth.value) > 0) || !(parseFloat(surveyHeight.value) > 0)) {
@@ -306,20 +305,14 @@ Item {
 
     // orbit
     CtxPanel {
-        shown: root.contextKind === "orbit"; below: topBar; edge: "#66B38CFF"
+        shown: root.contextKind === "orbit"; below: topBar; edge: "#66BF5AF2"
         height: orbitCol.implicitHeight + 28
         Column {
             id: orbitCol
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            PanelTitle { text: "ORBIT SETTINGS"; tone: "#B38CFF"; onClosed: root.setTool("orbit") }
+            PanelTitle { text: "Orbit Settings"; onClosed: root.setTool("orbit") }
             LabeledNumber { title: "Radius (m)"; value: "15"; onValueChanged: { var v = parseFloat(value); if (v > 0) Mission.setOrbitRadius(v) } }
             LabeledNumber { title: "Speed (m/s)"; value: "2"; onValueChanged: { var v = parseFloat(value); if (!isNaN(v)) Mission.setOrbitVelocity(v) } }
-            Text {
-                width: parent.width
-                text: "Positive = clockwise.\nNegative = counter-clockwise."
-                wrapMode: Text.WordWrap
-                font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
-            }
         }
     }
 
@@ -332,8 +325,8 @@ Item {
         Column {
             id: wpCol
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            PanelTitle { text: "WAYPOINT " + (Mission.selectedIndex + 1); onClosed: Mission.selectWaypoint(-1) }   // markers are 1-based
-            Text { text: "COMMAND"; font.family: Token.typography_familyMono; font.pixelSize: 9; font.letterSpacing: 1.2; color: Token.color_ui_textDim }
+            PanelTitle { text: "Waypoint " + (Mission.selectedIndex + 1); onClosed: Mission.selectWaypoint(-1) }   // markers are 1-based
+            Text { text: "Command"; font.pixelSize: 11; color: Token.color_ui_textDim }
             Row {
                 spacing: 4
                 Repeater {
@@ -342,12 +335,11 @@ Item {
                         id: seg
                         required property string modelData
                         readonly property bool on: wpCol.parent.wp !== null && wpCol.parent.wp.command === modelData
-                        width: (wpCol.width - 8) / 3; height: 28; radius: 6
-                        color: on ? Token.color_ui_accentSoft : "transparent"
-                        border.width: 1; border.color: on ? Token.color_ui_accentLine : Token.color_ui_line
-                        Text { anchors.centerIn: parent; text: modelData === "WAYPOINT" ? "WP" : modelData
-                               font.family: Token.typography_familyMono; font.pixelSize: 9; font.letterSpacing: 0.8
-                               color: seg.on ? Token.color_accent_primary : Token.color_ui_text }
+                        width: (wpCol.width - 8) / 3; height: 28; radius: 7
+                        color: on ? Token.color_ui_segThumb : Token.color_ui_fill
+                        Text { anchors.centerIn: parent; text: modelData === "WAYPOINT" ? "Waypoint" : modelData === "TAKEOFF" ? "Takeoff" : "Land"
+                               font.pixelSize: 12; font.weight: seg.on ? Font.DemiBold : Font.Medium
+                               color: seg.on ? Token.color_ui_text : Token.color_ui_textDim }
                         HoverHandler { cursorShape: Qt.PointingHandCursor }
                         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds
                                      onTapped: Mission.setWaypointCommand(Mission.selectedIndex, modelData) }
@@ -366,7 +358,7 @@ Item {
             }
             TextButton {
                 width: parent.width; height: 30
-                label: "DELETE WAYPOINT"; tone: "danger"
+                label: "Delete Waypoint"; icon: "trash"; tone: "danger"
                 onClicked: { Mission.deleteWaypoint(Mission.selectedIndex); Mission.selectWaypoint(-1) }
             }
         }
@@ -374,23 +366,23 @@ Item {
 
     // fence vertex
     CtxPanel {
-        shown: root.contextKind === "fence"; below: topBar; edge: "#6600E5E5"
+        shown: root.contextKind === "fence"; below: topBar; edge: "#6664D2FF"
         height: fenceCol.implicitHeight + 28
         Column {
             id: fenceCol
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            PanelTitle { text: "FENCE POINT " + (root.selectedFenceIndex + 1); tone: "#5ADBFF"; onClosed: root.selectedFenceIndex = -1 }
-            Text { text: "LAT"; font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_ui_textDim }
+            PanelTitle { text: "Fence Point " + (root.selectedFenceIndex + 1); onClosed: root.selectedFenceIndex = -1 }
+            Text { text: "Latitude"; font.pixelSize: 11; color: Token.color_ui_textDim }
             Text { text: root.selectedFenceIndex >= 0 && root.selectedFenceIndex < Mission.fencePoints.length
                          ? Number(Mission.fencePoints[root.selectedFenceIndex][0]).toFixed(6) : "–"
-                   font.family: Token.typography_familyMono; font.pixelSize: 11; color: "#5ADBFF" }
-            Text { text: "LON"; font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_ui_textDim }
+                   font.pixelSize: 12; color: "#64D2FF" }
+            Text { text: "Longitude"; font.pixelSize: 11; color: Token.color_ui_textDim }
             Text { text: root.selectedFenceIndex >= 0 && root.selectedFenceIndex < Mission.fencePoints.length
                          ? Number(Mission.fencePoints[root.selectedFenceIndex][1]).toFixed(6) : "–"
-                   font.family: Token.typography_familyMono; font.pixelSize: 11; color: "#5ADBFF" }
+                   font.pixelSize: 12; color: "#64D2FF" }
             TextButton {
                 width: parent.width; height: 30
-                label: "DELETE POINT"; tone: "danger"
+                label: "Delete Point"; tone: "danger"
                 onClicked: { Mission.deleteFencePoint(root.selectedFenceIndex); root.selectedFenceIndex = -1 }
             }
         }
@@ -401,35 +393,43 @@ Item {
         visible: root.statusText !== ""
         anchors.bottom: parent.bottom; anchors.bottomMargin: 20
         anchors.left: parent.left; anchors.leftMargin: 20
-        width: statusLabel.implicitWidth + 28; height: 30; radius: 8
+        width: statusRow.implicitWidth + 32; height: 34; radius: 17
         color: Token.color_ui_glassStrong
         border.width: 1
-        border.color: root.statusOk ? Token.color_ui_okLine : Token.color_ui_dangerLine
+        border.color: Token.color_ui_line
         z: 20
-        Text {
-            id: statusLabel
+        Row {
+            id: statusRow
             anchors.centerIn: parent
-            text: root.statusText
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10; font.letterSpacing: 0.8
-            color: root.statusOk ? Token.color_status_ok : "#FF8A8A"
+            spacing: 7
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                name: root.statusOk ? "checkmark" : "warning"; size: 15; weight: 1.8
+                color: root.statusOk ? Token.color_status_ok : Token.color_status_danger
+            }
+            Text {
+                id: statusLabel
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.statusText.replace(/^[⚠✓]\s*/, "")
+                font.pixelSize: 13; font.weight: Font.Medium
+                color: Token.color_ui_text
+            }
         }
     }
     Rectangle {
         visible: Mission.fencePoints.length > 0
         anchors.bottom: parent.bottom; anchors.bottomMargin: 20
         anchors.right: parent.right; anchors.rightMargin: 20
-        width: fenceCountText.implicitWidth + 28; height: 30; radius: 8
+        width: fenceCountText.implicitWidth + 32; height: 34; radius: 17
         color: Token.color_ui_glassStrong
-        border.width: 1; border.color: "#6600E5E5"
+        border.width: 1; border.color: Token.color_ui_line
         z: 20
         Text {
             id: fenceCountText
             anchors.centerIn: parent
-            text: "FENCE: " + Mission.fencePoints.length + " PTS" + (Mission.fencePoints.length < 3 ? " (need 3+)" : " ✓")
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10; font.letterSpacing: 0.8
-            color: "#5ADBFF"
+            text: "Fence · " + Mission.fencePoints.length + " points" + (Mission.fencePoints.length < 3 ? " (need 3+)" : "")
+            font.pixelSize: 13; font.weight: Font.Medium
+            color: Token.color_ui_text
         }
     }
 
@@ -443,17 +443,25 @@ Item {
         modal: true
         padding: 18
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Token.motion_fast; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: Token.motion_normal; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Token.motion_fast; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Token.motion_fast }
+        }
         Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.4) }
-        background: Rectangle { radius: 12; color: Token.color_ui_glassSolid; border.width: 1; border.color: Token.color_ui_lineStrong }
+        background: Rectangle { radius: Token.dimension_radius_xl; color: Token.color_ui_glassStrong; border.width: 1; border.color: Token.color_ui_line }
         contentItem: Column {
             spacing: 16
-            Text { text: confirm.message; color: Token.color_ui_text; font.family: Token.typography_familyUi; font.pixelSize: 13 }
+            Text { text: confirm.message; color: Token.color_ui_text; font.pixelSize: 13 }
             Row {
                 spacing: 8
                 layoutDirection: Qt.RightToLeft
                 anchors.right: parent.right
-                TextButton { label: "CONFIRM"; tone: "danger"; onClicked: { confirm.close(); if (confirm.onYes) confirm.onYes() } }
-                TextButton { label: "CANCEL"; onClicked: confirm.close() }
+                TextButton { label: "Confirm"; tone: "danger"; onClicked: { confirm.close(); if (confirm.onYes) confirm.onYes() } }
+                TextButton { label: "Cancel"; onClicked: confirm.close() }
             }
         }
     }

@@ -12,10 +12,10 @@ Item {
     readonly property int fixType: tm.gps_fix
     readonly property int sats: tm.sats
     readonly property var fixLabels: [
-        { label: "NO GPS", tone: "dim" }, { label: "NO FIX", tone: "bad" },
-        { label: "2D FIX", tone: "warn" }, { label: "3D FIX", tone: "ok" },
-        { label: "DGPS", tone: "ok" }, { label: "RTK FLOAT", tone: "info" },
-        { label: "RTK FIXED", tone: "info" }, { label: "STATIC", tone: "ok" }, { label: "PPP", tone: "ok" }
+        { label: "No GPS", tone: "dim" }, { label: "No Fix", tone: "bad" },
+        { label: "2D Fix", tone: "warn" }, { label: "3D Fix", tone: "ok" },
+        { label: "DGPS", tone: "ok" }, { label: "RTK Float", tone: "info" },
+        { label: "RTK Fixed", tone: "info" }, { label: "Static", tone: "ok" }, { label: "PPP", tone: "ok" }
     ]
     readonly property var fix: fixLabels[Math.max(0, Math.min(fixType, fixLabels.length - 1))]
     readonly property string tone: !linked ? "dim"
@@ -30,7 +30,7 @@ Item {
     function toneSoft(t) {
         return t === "ok" ? Token.color_ui_okSoft : t === "warn" ? Token.color_ui_warnSoft
              : t === "bad" ? Token.color_ui_dangerSoft : t === "info" ? Token.color_ui_accentSoft
-             : Qt.rgba(1, 1, 1, 0.04)
+             : Token.color_ui_fill
     }
     readonly property color accent: toneColor(tone)
     readonly property bool open: popup.opened
@@ -42,10 +42,9 @@ Item {
         id: chip
         height: 38
         width: row.implicitWidth + 24
-        radius: 8
-        color: hover.hovered || popup.opened ? Qt.lighter(root.toneSoft(root.tone), 1.4) : root.toneSoft(root.tone)
-        border.width: 1
-        border.color: Qt.alpha(root.accent, 0.4)
+        radius: Token.dimension_radius_md
+        color: popup.opened ? Token.color_ui_fillPressed : hover.hovered ? Token.color_ui_fill : "transparent"
+        Behavior on color { ColorAnimation { duration: Token.motion_fast } }
         Row {
             id: row
             anchors.centerIn: parent
@@ -60,36 +59,33 @@ Item {
                 spacing: 2
                 Text {
                     text: "GPS · " + (root.linked ? root.fix.label : "—")
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 9
-                    font.weight: Font.DemiBold
-                    font.letterSpacing: 1.4
-                    color: root.accent
+                    font.pixelSize: 11
+                    color: root.tone === "bad" || root.tone === "warn" ? root.accent : Token.color_ui_textDim
                 }
                 Row {
                     spacing: 6
                     Text {
                         text: root.linked ? root.sats + " sats" : "–"
-                        font.family: Token.typography_familyMono
+                        font.features: { "tnum": 1 }
                         font.pixelSize: 13
-                        font.weight: Font.Bold
-                        color: root.linked ? "#FFFFFF" : Token.color_text_muted
+                        font.weight: Font.DemiBold
+                        color: root.linked ? Token.color_ui_text : Token.color_text_muted
                     }
                     Text {
                         visible: root.linked && root.tm.hdop !== null && root.tm.hdop !== undefined
                         anchors.verticalCenter: parent.verticalCenter
                         text: "HDOP " + Number(root.tm.hdop).toFixed(1)
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 10
+                        font.pixelSize: 11
                         color: Token.color_ui_textDim
                     }
                 }
             }
-            Text {
+            Icon {
                 anchors.verticalCenter: parent.verticalCenter
-                text: popup.opened ? "▴" : "▾"
-                font.pixelSize: 10
+                name: "chevron.down"; size: 11; weight: 1.6
                 color: Token.color_ui_textDim
+                rotation: popup.opened ? 180 : 0
+                Behavior on rotation { NumberAnimation { duration: Token.motion_fast; easing.type: Easing.OutCubic } }
             }
         }
     }
@@ -108,9 +104,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: parent.label
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10
-            font.letterSpacing: 1.2
+            font.pixelSize: 13
             color: Token.color_ui_textDim
         }
         Row {
@@ -121,16 +115,15 @@ Item {
                 visible: parent.parent.note !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: parent.parent.note
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
+                font.pixelSize: 11
                 color: Token.color_text_muted
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: parent.parent.value
-                font.family: Token.typography_familyMono
-                font.pixelSize: 12
-                font.weight: Font.Bold
+                font.features: { "tnum": 1 }
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
                 color: parent.parent.valueColor
             }
         }
@@ -149,11 +142,20 @@ Item {
         width: 276
         padding: 14
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        transformOrigin: Popup.Top
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Token.motion_fast; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Token.motion_normal; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Token.motion_fast; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Token.motion_fast }
+        }
         background: Rectangle {
-            radius: 12
+            radius: Token.dimension_radius_lg
             color: Token.color_ui_glassStrong
             border.width: 1
-            border.color: Token.color_ui_lineStrong
+            border.color: Token.color_ui_line
         }
         contentItem: Column {
             spacing: 4
@@ -161,56 +163,40 @@ Item {
                 width: parent.width; height: 28
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "GPS STATUS"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    font.letterSpacing: 2
+                    text: "GPS"
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
                     color: Token.color_ui_text
                 }
                 Rectangle {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    width: badge.implicitWidth + 14; height: 18; radius: 4
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Qt.alpha(root.accent, 0.6)
+                    width: badge.implicitWidth + 16; height: 20; radius: 10
+                    color: Qt.alpha(root.accent, 0.18)
                     Text {
                         id: badge
                         anchors.centerIn: parent
-                        text: root.linked ? root.fix.label : "NO LINK"
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 9
-                        font.letterSpacing: 1
+                        text: root.linked ? root.fix.label : "No Link"
+                        font.pixelSize: 11; font.weight: Font.DemiBold
                         color: root.accent
                     }
                 }
             }
             Rule {}
-            Line { label: "FIX TYPE"; value: root.linked ? root.fix.label : "–"; valueColor: root.accent }
-            Line { label: "SATELLITES"; value: root.linked ? String(root.sats) : "–"
+            Line { label: "Fix Type"; value: root.linked ? root.fix.label : "–"; valueColor: root.accent }
+            Line { label: "Satellites"; value: root.linked ? String(root.sats) : "–"
                    valueColor: !root.linked ? Token.color_text_muted
                              : root.sats >= 6 ? Token.color_status_ok : root.sats >= 4 ? Token.color_status_warn : Token.color_status_danger }
             Rule {}
-            Line { label: "HDOP"; note: "horiz accuracy"; value: root.num(root.tm.hdop, 2); valueColor: root.dopColor(root.tm.hdop, 1.0, 2.0) }
-            Line { label: "VDOP"; note: "vert accuracy"; value: root.num(root.tm.vdop, 2); valueColor: root.dopColor(root.tm.vdop, 1.5, 3.0) }
+            Line { label: "HDOP"; value: root.num(root.tm.hdop, 2); valueColor: root.dopColor(root.tm.hdop, 1.0, 2.0) }
+            Line { label: "VDOP"; value: root.num(root.tm.vdop, 2); valueColor: root.dopColor(root.tm.vdop, 1.5, 3.0) }
             Rule {}
-            Line { label: "COG"; note: "course over ground"; value: root.num(root.tm.cog, 1, "°"); valueColor: Token.color_accent_primary }
-            Line { label: "SPEED"; value: root.num(root.tm.gps_vel, 1, " m/s"); valueColor: Token.color_accent_primary }
+            Line { label: "COG"; value: root.num(root.tm.cog, 1, "°") }
+            Line { label: "Speed"; value: root.num(root.tm.gps_vel, 1, " m/s") }
             Rule {}
-            Line { label: "LAT"; value: root.linked ? root.num(root.tm.lat, 7) : "–" }
-            Line { label: "LON"; value: root.linked ? root.num(root.tm.lon, 7) : "–" }
-            Line { label: "ALT"; value: root.linked ? root.num(root.tm.altitude, 1, " m") : "–" }
-            Item { width: 1; height: 4 }
-            Text {
-                width: parent.width
-                text: "HDOP ≤ 1.0 good · ≤ 2.0 fair · above is poor\nVDOP ≤ 1.5 good · ≤ 3.0 fair\nSats 6+ good · 4–5 fair"
-                wrapMode: Text.WordWrap
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
-                lineHeight: 1.4
-                color: Token.color_text_muted
-            }
+            Line { label: "Latitude"; value: root.linked ? root.num(root.tm.lat, 7) : "–" }
+            Line { label: "Longitude"; value: root.linked ? root.num(root.tm.lon, 7) : "–" }
+            Line { label: "Altitude"; value: root.linked ? root.num(root.tm.altitude, 1, " m") : "–" }
         }
     }
 }

@@ -10,7 +10,7 @@ GlassPanel {
     objectName: "mapView"
     accentBorder: false
     radius: 0
-    color: "#0B0F16"
+    color: "#1C1C1E"
     border.width: 0
 
     // ---- API ---------------------------------------------------------------
@@ -300,19 +300,18 @@ GlassPanel {
     // ---- home marker (H) -------------------------------------------------------
     Rectangle {
         z: 2
-        width: 22; height: 22; radius: 4
-        color: Qt.alpha(Token.color_base_bg, 0.85)
-        border.width: 1.5
-        border.color: Token.color_text_primary
+        width: 24; height: 24; radius: 12
+        color: Token.color_mission_home
+        border.width: 2
+        border.color: "#FFFFFF"
         x: mapPanel.toScreen(Mission.home[0], Mission.home[1]).x - width / 2
         y: mapPanel.toScreen(Mission.home[0], Mission.home[1]).y - height / 2
         Text {
             anchors.centerIn: parent
             text: "H"
-            font.family: Token.typography_familyMono
             font.pixelSize: Token.typography_size_sm
             font.weight: Token.typography_weight_bold
-            color: Token.color_text_primary
+            color: "#1C1C1E"
         }
     }
 
@@ -327,22 +326,22 @@ GlassPanel {
             required property int index
             readonly property bool selected: index === Mission.selectedIndex
             z: 3                       // Repeater.z does not reach delegates; the canvas (z:1) drew over markers
-            width: 24; height: 24; radius: 12
-            color: modelData.command === "TAKEOFF" ? Token.color_mission_home
+            width: selected ? 30 : 26; height: width; radius: width / 2
+            color: modelData.command === "TAKEOFF" ? Token.color_status_ok
                  : modelData.command === "LAND" ? Token.color_status_danger
-                 : Token.color_status_info
-            border.width: selected ? 2.5 : 1.5
-            border.color: selected ? "#FFFFFF" : Qt.alpha(Token.color_base_bg, 0.9)
+                 : Token.color_accent_primary
+            border.width: selected ? 3 : 2
+            border.color: "#FFFFFF"
+            Behavior on width { NumberAnimation { duration: Token.motion_fast } }
             x: mapPanel.toScreen(modelData.lat, modelData.lon).x - width / 2
             y: mapPanel.toScreen(modelData.lat, modelData.lon).y - height / 2
 
             Text {
                 anchors.centerIn: parent
                 text: index + 1
-                font.family: Token.typography_familyMono
-                font.pixelSize: Token.typography_size_xs
+                font.pixelSize: Token.typography_size_sm
                 font.weight: Token.typography_weight_bold
-                color: "#0B1016"
+                color: "#FFFFFF"
             }
 
             DragHandler {
@@ -600,13 +599,19 @@ GlassPanel {
         anchors.left: parent.left; anchors.leftMargin: 16
         anchors.bottom: parent.bottom; anchors.bottomMargin: 64
         z: 5
-        width: recText.implicitWidth + 24; height: 32; radius: 8
+        width: recRow.implicitWidth + 28; height: 34; radius: 17
         color: Token.color_ui_glassStrong
         border.width: 1
-        border.color: Token.color_ui_accentLine
-        Text { id: recText; anchors.centerIn: parent; text: "◎  FOLLOW VEHICLE"
-               font.family: Token.typography_familyMono; font.pixelSize: 10; font.letterSpacing: 1.2
-               color: Token.color_accent_primary }
+        border.color: Token.color_ui_line
+        Row {
+            id: recRow
+            anchors.centerIn: parent
+            spacing: 7
+            Icon { anchors.verticalCenter: parent.verticalCenter; name: "location"; size: 16; color: Token.color_accent_primary }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Follow Vehicle"
+                   font.pixelSize: 13; font.weight: Font.Medium
+                   color: Token.color_accent_primary }
+        }
         HoverHandler { cursorShape: Qt.PointingHandCursor }
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds
                      onTapped: { mapPanel.followVehicle = true; mapPanel.updateWorld() } }

@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QFontDatabase, QIcon
+from PySide6.QtGui import QGuiApplication, QFont, QFontDatabase, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 # Import QtQuick Python bindings BEFORE engine.load: PySide6 registers wrapper
 # types lazily per Python import. Without this, QML-created windows surface as
@@ -24,6 +24,7 @@ from PySide6.QtQuick import QQuickWindow, QQuickImageProvider  # noqa: F401
 from app.bridge.appinfo import AppInfoController
 from app.bridge.datalake import DataLakeController
 from app.bridge.telemetry import TelemetryController
+from app.bridge.theme import ThemeController
 from app.bridge.vehicle import VehicleController
 from app.bridge.mapbridge import MapController
 from app.bridge.mission import MissionController
@@ -69,6 +70,20 @@ def _load_bundled_fonts(app_root: Path) -> None:
             print(f"[fonts] failed to load {ttf.name}", file=sys.stderr)
 
 
+def _apply_default_font(app: QGuiApplication) -> None:
+    """Inter (the open SF Pro stand-in) becomes every Text's default font.
+    Live numeric readouts opt into tabular figures in QML (font.features
+    {"tnum": 1}) so digits don't jitter; enabling it globally would also make
+    hyphens tabular-width ("Li - ion")."""
+    if "Inter" not in QFontDatabase.families():
+        return
+    font = QFont("Inter")
+    font.setPixelSize(13)
+    font.setHintingPreference(QFont.PreferNoHinting)
+    font.setStyleStrategy(QFont.PreferAntialias)
+    app.setFont(font)
+
+
 def run(app_root: Path, smoke: bool = False, driver=None) -> int:
     """Boot the app. `driver(root, app, controllers)` — if given — is called
     right after QML load (before exec) and may schedule timers, drive the UI
@@ -87,6 +102,7 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
         app.setWindowIcon(QIcon(str(icon_path)))
 
     _load_bundled_fonts(app_root)
+    _apply_default_font(app)
 
     engine = QQmlApplicationEngine()
 
@@ -103,6 +119,13 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
     # onedir/AppImage extraction tree than a qmldir-registered singleton.
     _token_obj = _load_token(engine, app_root)
     engine.rootContext().setContextProperty("Token", _token_obj)
+    # Appearance (dark / light / system) drives Token.theme live.
+    # GH_THEME=dark|light forces a theme for this run without saving it
+    # (smoke screenshots of both themes).
+    theme = ThemeController(_token_obj, app)
+    if os.environ.get("GH_THEME") in ("dark", "light") and _token_obj is not None:
+        _token_obj.setProperty("theme", os.environ["GH_THEME"])
+    engine.rootContext().setContextProperty("Theme", theme)
     lake = DataLakeController()
     telemetry = TelemetryController(data_lake=lake)
 

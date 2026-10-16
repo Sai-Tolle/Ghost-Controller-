@@ -19,25 +19,21 @@ Rectangle {
 
     visible: shown !== null
     implicitWidth: label.implicitWidth + 36
-    implicitHeight: 32
+    implicitHeight: 36
     width: implicitWidth; height: implicitHeight
-    radius: 8
-    color: isDanger ? Qt.rgba(0.80, 0.16, 0.16, 0.94) : Qt.rgba(0.72, 0.45, 0.05, 0.94)
-    border.width: 1
-    border.color: isDanger ? "#FF8A8A" : "#FFC970"
+    radius: height / 2
+    color: isDanger ? Token.color_status_danger : Token.color_status_warn
 
     Row {
         anchors.centerIn: parent
         spacing: 8
-        Rectangle { width: 7; height: 7; radius: 3.5; color: "#FFFFFF"; anchors.verticalCenter: parent.verticalCenter }
+        Icon { name: "warning"; size: 16; weight: 1.7; color: root.isDanger ? "#FFFFFF" : "#1C1C1E"; anchors.verticalCenter: parent.verticalCenter }
         Text {
             id: label
-            text: root.shown ? root.shown.text.toUpperCase() : ""
-            font.family: Token.typography_familyMono
-            font.pixelSize: 11
-            font.weight: Font.Bold
-            font.letterSpacing: 1.6
-            color: "#FFFFFF"
+            text: root.shown ? root.shown.text : ""
+            font.pixelSize: Token.typography_size_md
+            font.weight: Font.DemiBold
+            color: root.isDanger ? "#FFFFFF" : "#1C1C1E"
         }
     }
     HoverHandler { cursorShape: Qt.PointingHandCursor }

@@ -1,6 +1,6 @@
 import QtQuick
 
 Text {
-    font.family: Token.typography_familyMono; font.pixelSize: 9
-    font.letterSpacing: 1.2; color: Token.color_ui_textDim
+    font.pixelSize: Token.typography_size_sm; font.weight: Font.Medium
+    color: Token.color_ui_textDim
 }

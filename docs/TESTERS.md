@@ -1,5 +1,7 @@
 # Ghost Controller — Field Test Install Guide
 
+> **Already installed?** See [UPDATING.md](UPDATING.md) to get the latest version.
+
 Ghost Controller is the UAV ground control station for the field test.
 Pick your platform below.
 

@@ -11,12 +11,12 @@ Rectangle {
 
     visible: text !== ""
     implicitWidth: label.implicitWidth + 32
-    implicitHeight: 30
+    implicitHeight: 36
     width: implicitWidth; height: implicitHeight
-    radius: 8
+    radius: height / 2
     color: Token.color_ui_glassStrong
     border.width: 1
-    border.color: ok ? Token.color_ui_okLine : Token.color_ui_dangerLine
+    border.color: Token.color_ui_line
 
     onSourceChanged: {
         var r = source ? source.result : null
@@ -24,7 +24,7 @@ Rectangle {
         var err = r.error
         ok = !err
         var detail = err ? err : (r.status ? r.status : "done")
-        text = source.command + "  ·  " + detail
+        text = source.command + " — " + detail
         hideTimer.restart()
     }
     Timer { id: hideTimer; interval: 4500; onTriggered: root.text = "" }
@@ -32,15 +32,14 @@ Rectangle {
     Row {
         anchors.centerIn: parent
         spacing: 8
-        Rectangle { width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter
+        Rectangle { width: 8; height: 8; radius: 4; anchors.verticalCenter: parent.verticalCenter
                     color: root.ok ? Token.color_status_ok : Token.color_status_danger }
         Text {
             id: label
             text: root.text
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10
-            font.letterSpacing: 1
-            color: root.ok ? Token.color_status_ok : "#FF8A8A"
+            font.pixelSize: Token.typography_size_md
+            font.weight: Font.Medium
+            color: Token.color_ui_text
         }
     }
     TapHandler { onTapped: root.text = "" }

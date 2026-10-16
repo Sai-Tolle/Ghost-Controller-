@@ -1,54 +1,78 @@
 import QtQuick
 
-// Web RollArc parity: arc with degree ticks and a rotating pointer showing
-// roll attitude. Presentation-only.
+// Roll scale: a shallow ±45° arc with ticks at 10/20/30/45° and a pointer
+// that slides along it with bank angle. The bank value appears beside the
+// pointer only while the aircraft is actually banked.
 Item {
     id: root
 
-    property real roll: 0
+    property real roll: 0            // deg, right wing down = positive
+    property real maxRoll: 45
 
-    onRollChanged: arcCanvas.requestPaint()
+    implicitWidth: 300
+    implicitHeight: 64
+
+    onRollChanged: arc.requestPaint()
 
     Canvas {
-        id: arcCanvas
+        id: arc
         anchors.fill: parent
-        readonly property real cx: width / 2
-        readonly property real cy: height * 0.82
-        readonly property real r: Math.min(width, height) * 0.62
+        property color ink: Token.color_hud_text
+        property color shadow: Token.color_hud_textShadow
+        property color accent: Token.color_accent_primary
+        onInkChanged: requestPaint()
+        onWidthChanged: requestPaint()
         onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            // main arc (0..180°, upper half)
-            ctx.strokeStyle = "rgba(255,255,255,0.75)"
-            ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 3
-            ctx.lineWidth = 2
-            ctx.beginPath()
-            ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI, false)
-            ctx.stroke()
-            // tick marks at -30/-20/-10/0/10/20/30
-            for (var i = 0; i <= 6; i++) {
-                var deg = i * 10 - 30
-                var rad = (deg * Math.PI / 180) - Math.PI / 2
-                ctx.lineWidth = deg === 0 ? 2.5 : 1.5
+            var ctx = getContext("2d"); ctx.reset()
+            // circle centre well below the item: a wide, shallow arc
+            var r = width * 0.9
+            var cx = width / 2, cy = 8 + r
+            var toRad = function (deg) { return (deg - 90) * Math.PI / 180 }
+            ctx.lineCap = "round"
+            ctx.shadowColor = shadow; ctx.shadowBlur = 4
+
+            ctx.globalAlpha = 0.55
+            ctx.strokeStyle = ink; ctx.lineWidth = 1.25
+            ctx.beginPath(); ctx.arc(cx, cy, r, toRad(-root.maxRoll), toRad(root.maxRoll), false); ctx.stroke()
+
+            var ticks = [-45, -30, -20, -10, 0, 10, 20, 30, 45]
+            for (var i = 0; i < ticks.length; i++) {
+                var t = ticks[i]
+                var major = t === 0 || Math.abs(t) === 30 || Math.abs(t) === 45
+                var len = t === 0 ? 10 : major ? 8 : 5
+                var a = toRad(t)
+                ctx.globalAlpha = major ? 0.9 : 0.6
+                ctx.lineWidth = t === 0 ? 2 : 1.25
                 ctx.beginPath()
-                ctx.moveTo(cx + (r - 6) * Math.cos(rad), cy + (r - 6) * Math.sin(rad))
-                ctx.lineTo(cx + (r + 2) * Math.cos(rad), cy + (r + 2) * Math.sin(rad))
+                ctx.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a))
+                ctx.lineTo(cx + (r + len) * Math.cos(a), cy + (r + len) * Math.sin(a))
                 ctx.stroke()
             }
-            // rotating pointer triangle
+
+            // pointer: rides inside the arc at the current bank angle
+            var rr = Math.max(-root.maxRoll, Math.min(root.maxRoll, root.roll))
+            var pa = toRad(rr)
             ctx.save()
-            ctx.translate(cx, cy)
-            ctx.rotate(-root.roll * Math.PI / 180)
-            ctx.fillStyle = "#5AA9FF"
-            ctx.beginPath()
-            ctx.moveTo(0, -r + 5)
-            ctx.lineTo(-4, -r + 14)
-            ctx.lineTo(4, -r + 14)
-            ctx.closePath()
-            ctx.fill()
+            ctx.translate(cx + (r - 3) * Math.cos(pa), cy + (r - 3) * Math.sin(pa))
+            ctx.rotate(rr * Math.PI / 180)
+            ctx.globalAlpha = 1
+            ctx.fillStyle = Math.abs(root.roll) > root.maxRoll ? "#FF9F0A" : accent
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-6, 10); ctx.lineTo(6, 10); ctx.closePath(); ctx.fill()
             ctx.restore()
         }
-        onWidthChanged: requestPaint()
-        onHeightChanged: requestPaint()
+    }
+
+    Text {
+        visible: Math.abs(root.roll) >= 1.5
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenterOffset: root.roll > 0 ? 44 : -44
+        anchors.top: parent.top
+        anchors.topMargin: 22
+        text: Math.abs(root.roll).toFixed(0) + "°"
+        font.pixelSize: 11; font.weight: Font.DemiBold
+        font.features: { "tnum": 1 }
+        color: Token.color_hud_text
+        style: Text.Outline; styleColor: Token.color_hud_textShadow
+        opacity: 0.85
     }
 }

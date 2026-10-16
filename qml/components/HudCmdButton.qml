@@ -17,44 +17,39 @@ Rectangle {
     signal doubleClicked()
 
     implicitWidth: 108
-    implicitHeight: 36
-    radius: 8
+    implicitHeight: Token.dimension_hud_actionButtonHeight
+    radius: Token.dimension_radius_md
 
-    readonly property color base: tone === "primary" ? "#2F7DF6"
+    readonly property color base: tone === "primary" ? Token.color_accent_primary
                                 : tone === "danger"  ? Token.color_ui_dangerSoft
-                                : Qt.rgba(0.04, 0.05, 0.075, 0.74)
-    color: !enabled ? base
-         : pressed ? Qt.lighter(base, 1.25)
-         : hovered ? Qt.lighter(base, 1.12) : base
-    border.width: 1
-    border.color: tone === "primary" ? Token.color_accent_primary
-                : tone === "danger"  ? Token.color_ui_dangerLine
-                : hovered ? Token.color_ui_lineStrong : Token.color_ui_line
-    opacity: enabled ? 1.0 : 0.4
+                                : Token.color_ui_fill
+    color: !enabled ? Qt.alpha(Token.color_ui_text, 0.06)
+         : pressed ? (tone === "neutral" ? Token.color_ui_fillPressed : Qt.darker(base, 1.15))
+         : hovered ? (tone === "neutral" ? Token.color_ui_fillHover : Qt.lighter(base, 1.12)) : base
+    scale: pressed ? 0.97 : 1.0
     Behavior on color { ColorAnimation { duration: Token.motion_fast } }
+    Behavior on scale { NumberAnimation { duration: Token.motion_fast; easing.type: Easing.OutCubic } }
 
     Row {
         anchors.centerIn: parent
-        spacing: 8
+        spacing: 6
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: root.busy ? "…" : root.label
             width: Math.min(implicitWidth, root.width - 16)
             elide: Text.ElideRight
-            font.family: Token.typography_familyMono
-            font.pixelSize: 11
+            font.pixelSize: Token.typography_size_md
             font.weight: Font.DemiBold
-            font.letterSpacing: 1.4
-            color: root.tone === "danger" ? Token.color_status_danger
-                 : root.tone === "primary" ? "#FFFFFF" : "#DCE6F4"
+            color: !root.enabled ? Token.color_ui_textTertiary
+                 : root.tone === "danger" ? Token.color_status_danger : root.tone === "primary" ? Token.color_ui_onTint : Token.color_ui_text
         }
         Text {
             visible: root.sublabel !== ""
             anchors.verticalCenter: parent.verticalCenter
             text: root.sublabel
-            font.family: Token.typography_familyMono
-            font.pixelSize: 9
-            color: Qt.alpha(parent.children[0].color, 0.65)
+            font.pixelSize: Token.typography_size_sm
+            color: !root.enabled ? Token.color_ui_textTertiary
+                 : root.tone === "danger" ? Qt.alpha(Token.color_status_danger, 0.7) : Token.color_ui_textDim
         }
     }
 

@@ -24,11 +24,11 @@ Canvas {
         // ladder vanished against sky and water in the video.
         ctx.strokeStyle = "#FFFFFF"
         ctx.fillStyle = "#FFFFFF"
-        ctx.lineWidth = 1.4
-        ctx.globalAlpha = 0.85
-        ctx.shadowColor = "rgba(0,0,0,0.6)"; ctx.shadowBlur = 3
+        ctx.lineWidth = 1.5
+        ctx.lineCap = "round"
+        ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 4
         // CSS shorthand: quoted family (multi-word) + generic fallback
-        ctx.font = "11px '" + Token.typography_familyMono + "', monospace"
+        ctx.font = "500 11px '" + Token.typography_familyUi + "', sans-serif"
 
         var cy = height / 2 + pitch * pxPerDeg
         var mid = width / 2
@@ -37,6 +37,12 @@ Canvas {
 
         function bar(deg, halfWidth) {
             var y = cy - deg * pxPerDeg
+            // fade out toward the top/bottom so the ladder dissolves instead of clipping
+            var a = 1 - Math.abs(y - height / 2) / (height / 2)
+            if (a <= 0.02) return
+            ctx.globalAlpha = Math.min(0.9, a * 1.3)
+            // below the horizon: dashed bars (standard HUD convention)
+            ctx.setLineDash(deg < 0 ? [7, 5] : [])
             ctx.beginPath()
             ctx.moveTo(mid - gap - 14, y)
             ctx.lineTo(mid - gap - 14 - halfWidth, y)
@@ -45,18 +51,20 @@ Canvas {
             ctx.moveTo(mid + gap + 14, y)
             ctx.lineTo(mid + gap + 14 + halfWidth, y)
             ctx.stroke()
+            ctx.setLineDash([])
             if (halfWidth >= major) {
                 ctx.textAlign = "right"
-                ctx.fillText((deg > 0 ? "+" : "") + deg, mid - gap - 22 - halfWidth, y + 4)
+                ctx.fillText(Math.abs(deg), mid - gap - 22 - halfWidth, y + 4)
                 ctx.textAlign = "left"
-                ctx.fillText((deg > 0 ? "+" : "") + deg, mid + gap + 22 + halfWidth, y + 4)
+                ctx.fillText(Math.abs(deg), mid + gap + 22 + halfWidth, y + 4)
             }
         }
 
         for (var d = -30; d <= 30; d += 5) {
             if (d === 0) continue
-            bar(d, d % 10 === 0 ? major : major * 0.55)
+            bar(d, d % 10 === 0 ? major : major * 0.45)
         }
+        ctx.globalAlpha = 0.9
 
         // zenith/nadir arrow above the +30 bar
         var zy = cy - 30 * pxPerDeg

@@ -29,11 +29,9 @@ Item {
         id: chip
         height: 38
         width: chipRow.implicitWidth + 24
-        radius: 8
-        color: !known ? Qt.rgba(1, 1, 1, 0.04) : critical ? Token.color_ui_dangerSoft
-             : low ? Token.color_ui_warnSoft : Token.color_ui_okSoft
-        border.width: 1
-        border.color: Qt.alpha(root.tone, popup.opened || hover.hovered ? 0.8 : 0.4)
+        radius: Token.dimension_radius_md
+        color: popup.opened ? Token.color_ui_fillPressed : hover.hovered ? Token.color_ui_fill : "transparent"
+        Behavior on color { ColorAnimation { duration: Token.motion_fast } }
         Row {
             id: chipRow
             anchors.centerIn: parent
@@ -47,24 +45,24 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
                 Text {
-                    text: "BATT" + (root.known && root.tm.battery_v > 0 ? " · " + root.tm.battery_v.toFixed(1) + " V" : "")
+                    text: "Battery" + (root.known && root.tm.battery_v > 0 ? " · " + root.tm.battery_v.toFixed(1) + " V" : "")
                           + (root.tm.battery_source === "voltage" ? " · EST" : "")
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 9; font.weight: Font.DemiBold; font.letterSpacing: 1.4
-                    color: root.tone
+                    font.pixelSize: 11
+                    color: root.critical || root.low ? root.tone : Token.color_ui_textDim
                 }
                 Text {
                     text: root.known ? root.pct.toFixed(0) + "%" : "N/A"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 13; font.weight: Font.Bold
-                    color: root.known ? "#FFFFFF" : Token.color_text_muted
+                    font.features: { "tnum": 1 }
+                    font.pixelSize: 13; font.weight: Font.DemiBold
+                    color: root.known ? Token.color_ui_text : Token.color_text_muted
                 }
             }
-            Text {
+            Icon {
                 anchors.verticalCenter: parent.verticalCenter
-                text: popup.opened ? "▴" : "▾"
-                font.pixelSize: 10
+                name: "chevron.down"; size: 11; weight: 1.6
                 color: Token.color_ui_textDim
+                rotation: popup.opened ? 180 : 0
+                Behavior on rotation { NumberAnimation { duration: Token.motion_fast; easing.type: Easing.OutCubic } }
             }
         }
     }
@@ -112,46 +110,24 @@ Item {
         property alias field: input
         property string suffix: ""
         spacing: 4
-        Text { text: fld.title; font.family: Token.typography_familyMono; font.pixelSize: 9
-               font.letterSpacing: 1.2; color: Token.color_ui_textDim }
+        Text { text: fld.title; font.pixelSize: 11
+               color: Token.color_ui_textDim }
         TextField {
             id: input
             width: 100; height: 30
             color: Token.color_ui_text
             selectByMouse: true
-            font.family: Token.typography_familyMono; font.pixelSize: 12
+            font.pixelSize: 13
             leftPadding: 9
             inputMethodHints: Qt.ImhFormattedNumbersOnly
             background: Rectangle {
-                radius: 6; color: Qt.rgba(1, 1, 1, 0.05)
-                border.width: 1
-                border.color: input.activeFocus ? Token.color_accent_primary : Token.color_ui_line
+                radius: 7; color: Token.color_ui_fill
+                border.width: input.activeFocus ? 2 : 0
+                border.color: Qt.alpha(Token.color_accent_primary, 0.8)
             }
         }
     }
-    component Seg: Row {
-        id: seg
-        property var options: []            // [{id, label}]
-        property string current: ""
-        signal picked(string id)
-        spacing: 4
-        Repeater {
-            model: seg.options
-            delegate: Rectangle {
-                required property var modelData
-                readonly property bool on: seg.current === modelData.id
-                width: (seg.width - (seg.options.length - 1) * 4) / seg.options.length
-                height: 28; radius: 6
-                color: on ? Token.color_ui_accentSoft : "transparent"
-                border.width: 1; border.color: on ? Token.color_ui_accentLine : Token.color_ui_line
-                Text { anchors.centerIn: parent; text: modelData.label
-                       font.family: Token.typography_familyMono; font.pixelSize: 9; font.letterSpacing: 0.8
-                       color: on ? Token.color_accent_primary : Token.color_ui_text }
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
-                TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: seg.picked(modelData.id) }
-            }
-        }
-    }
+    component Seg: SegControl {}
 
     Popup {
         id: popup
@@ -159,9 +135,18 @@ Item {
         width: 316
         padding: 14
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        transformOrigin: Popup.Top
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Token.motion_fast; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Token.motion_normal; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Token.motion_fast; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Token.motion_fast }
+        }
         onAboutToShow: root.loadProfile()
-        background: Rectangle { radius: 12; color: Token.color_ui_glassStrong
-                                border.width: 1; border.color: Token.color_ui_lineStrong }
+        background: Rectangle { radius: Token.dimension_radius_xl; color: Token.color_ui_glassStrong
+                                border.width: 1; border.color: Token.color_ui_line }
         // Scrolls inside the window on short screens (the FC preview adds rows).
         height: Math.min(contentCol.implicitHeight + 2 * padding, Math.max(240, root.Window.height - 64))
         contentItem: Flickable {
@@ -175,57 +160,49 @@ Item {
             id: contentCol
             width: flick.width - (flick.contentHeight > flick.height ? 10 : 0)
             spacing: 10
-            Text { text: "BATTERY SETUP"; font.family: Token.typography_familyMono; font.pixelSize: 11
-                   font.weight: Font.Bold; font.letterSpacing: 2; color: Token.color_ui_text }
-            Rectangle { width: parent.width; height: 1; color: Token.color_ui_line }
+            Text { text: "Battery"; font.pixelSize: 17
+                   font.weight: Font.DemiBold; color: Token.color_ui_text }
 
             Rectangle {                                                    // live readout
-                width: parent.width; height: 50; radius: 8
-                color: Qt.rgba(1, 1, 1, 0.04); border.width: 1; border.color: Token.color_ui_line
+                width: parent.width; height: 54; radius: 10
+                color: Token.color_ui_fill
                 Row {
                     anchors.centerIn: parent
                     spacing: 18
                     Repeater {
                         model: [
-                            { k: "PACK",    v: root.linked && root.tm.battery_v > 0 ? root.tm.battery_v.toFixed(2) + " V" : "–" },
-                            { k: "PER CELL", v: root.linked && root.tm.battery_cell_v ? root.tm.battery_cell_v.toFixed(2) + " V" : "–" },
-                            { k: "SHOWN",   v: root.known ? root.pct.toFixed(0) + "%" : "–" },
-                            { k: "VEHICLE", v: root.linked && root.tm.battery_pct_vehicle >= 0 ? root.tm.battery_pct_vehicle.toFixed(0) + "%" : "–" }
+                            { k: "Pack",    v: root.linked && root.tm.battery_v > 0 ? root.tm.battery_v.toFixed(2) + " V" : "–" },
+                            { k: "Per Cell", v: root.linked && root.tm.battery_cell_v ? root.tm.battery_cell_v.toFixed(2) + " V" : "–" },
+                            { k: "Shown",   v: root.known ? root.pct.toFixed(0) + "%" : "–" },
+                            { k: "Vehicle", v: root.linked && root.tm.battery_pct_vehicle >= 0 ? root.tm.battery_pct_vehicle.toFixed(0) + "%" : "–" }
                         ]
                         delegate: Column {
                             required property var modelData
                             spacing: 2
-                            Text { text: modelData.k; font.family: Token.typography_familyMono; font.pixelSize: 8
-                                   font.letterSpacing: 1.2; color: Token.color_ui_textDim }
-                            Text { text: modelData.v; font.family: Token.typography_familyMono; font.pixelSize: 12
-                                   font.weight: Font.Bold; color: "#FFFFFF" }
+                            Text { text: modelData.k; font.pixelSize: 10
+                                   color: Token.color_ui_textDim }
+                            Text { text: modelData.v; font.pixelSize: 13
+                                   font.weight: Font.DemiBold; color: Token.color_ui_text }
                         }
                     }
                 }
             }
 
-            Text { text: "PERCENTAGE SOURCE"; font.family: Token.typography_familyMono; font.pixelSize: 9
-                   font.letterSpacing: 1.2; color: Token.color_ui_textDim }
+            Text { text: "Percentage Source"; font.pixelSize: 11
+                   color: Token.color_ui_textDim }
             Seg {
                 width: parent.width
-                options: [{ id: "vehicle", label: "VEHICLE %" }, { id: "voltage", label: "FROM VOLTAGE" }]
+                options: [{ id: "vehicle", label: "Vehicle %" }, { id: "voltage", label: "From Voltage" }]
                 current: root.fSource
                 onPicked: function(id) { root.fSource = id }
             }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap
-                text: root.fSource === "voltage"
-                      ? "Estimated from pack voltage. Reads low under heavy load and recovers in hover."
-                      : "Uses the percentage the flight controller reports."
-                font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
-            }
 
-            Text { text: "PACK"; font.family: Token.typography_familyMono; font.pixelSize: 9
-                   font.letterSpacing: 1.2; color: Token.color_ui_textDim }
+            Text { text: "Pack"; font.pixelSize: 11
+                   color: Token.color_ui_textDim }
             Seg {
                 width: parent.width
                 options: [{ id: "lipo", label: "LiPo" }, { id: "lihv", label: "LiHV" },
-                          { id: "liion", label: "Li-ion" }, { id: "custom", label: "CUSTOM" }]
+                          { id: "liion", label: "Li-ion" }, { id: "custom", label: "Custom" }]
                 current: root.fChem
                 onPicked: function(id) { if (id === "custom") root.fChem = "custom"; else root.applyPreset(id) }
             }
@@ -233,26 +210,26 @@ Item {
                 spacing: 10
                 Column {
                     spacing: 4
-                    Text { text: "CELLS (S)"; font.family: Token.typography_familyMono; font.pixelSize: 9
-                           font.letterSpacing: 1.2; color: Token.color_ui_textDim }
+                    Text { text: "Cells (S)"; font.pixelSize: 11
+                           color: Token.color_ui_textDim }
                     Row {
                         spacing: 4
                         TextButton { label: "−"; width: 30; height: 30; onClicked: root.fCells = Math.max(0, root.fCells - 1) }
                         Rectangle {
-                            width: 44; height: 30; radius: 6; color: Qt.rgba(1, 1, 1, 0.05)
+                            width: 44; height: 30; radius: 6; color: Token.color_ui_fill
                             border.width: 1; border.color: Token.color_ui_line
                             Text { anchors.centerIn: parent; text: root.fCells > 0 ? root.fCells + "S" : "–"
-                                   font.family: Token.typography_familyMono; font.pixelSize: 12; font.weight: Font.Bold
-                                   color: "#FFFFFF" }
+                                   font.pixelSize: 13; font.weight: Font.DemiBold
+                                   color: Token.color_ui_text }
                         }
                         TextButton { label: "+"; width: 30; height: 30; onClicked: root.fCells = Math.min(14, root.fCells + 1) }
                     }
                 }
                 Column {
                     spacing: 4
-                    Text { text: " "; font.pixelSize: 9 }
+                    Text { text: " "; font.pixelSize: 11 }
                     TextButton {
-                        label: "DETECT"; height: 30; width: 78
+                        label: "Detect"; height: 30; width: 78
                         enabled: root.linked && root.tm.battery_v > 3
                         onClicked: {
                             var n = Battery.detectCells(root.tm.battery_v, parseFloat(fullField.text) || 4.2)
@@ -261,43 +238,32 @@ Item {
                     }
                 }
             }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap
-                text: "DETECT reads the cell count from the live pack voltage — use it with a fully charged pack."
-                font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
+            Row {
+                spacing: 10
+                Field { id: fullField;  title: "Full V / Cell";  onTextChanged: if (field.activeFocus) root.fChem = "custom" }
+                Field { id: emptyField; title: "Empty V / Cell"; onTextChanged: if (field.activeFocus) root.fChem = "custom" }
             }
             Row {
                 spacing: 10
-                Field { id: fullField;  title: "FULL V / CELL";  onTextChanged: if (field.activeFocus) root.fChem = "custom" }
-                Field { id: emptyField; title: "EMPTY V / CELL"; onTextChanged: if (field.activeFocus) root.fChem = "custom" }
+                Field { id: warnField; title: "Warning %" }
+                Field { id: critField; title: "Critical %" }
             }
             Row {
                 spacing: 10
-                Field { id: warnField; title: "WARNING %" }
-                Field { id: critField; title: "CRITICAL %" }
-            }
-            Row {
-                spacing: 10
-                Field { id: capField; objectName: "batteryCapacity"; title: "CAPACITY mAh"; field.placeholderText: "not set"
+                Field { id: capField; objectName: "batteryCapacity"; title: "Capacity (mAh)"; field.placeholderText: "not set"
                         field.placeholderTextColor: Token.color_text_disabled }
-                Text {
-                    width: 120; anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                    wrapMode: Text.WordWrap
-                    text: "Used by the flight controller's own % and mAh failsafes."
-                    font.family: Token.typography_familyMono; font.pixelSize: 8; color: Token.color_text_muted
-                }
             }
             Text {
                 visible: root.errorText !== ""
                 width: parent.width; wrapMode: Text.WordWrap
                 text: root.errorText
-                font.family: Token.typography_familyMono; font.pixelSize: 10; color: Token.color_status_danger
+                font.pixelSize: 11; color: Token.color_status_danger
             }
             Row {
                 spacing: 8
-                TextButton { label: "APPLY"; tone: "primary"; width: 96; onClicked: root.commit(true) }
-                TextButton { label: "RESET"; width: 80; onClicked: { Battery.resetDefaults(); root.loadProfile() } }
-                TextButton { label: "CANCEL"; width: 80; onClicked: popup.close() }
+                TextButton { label: "Apply"; tone: "primary"; width: 96; onClicked: root.commit(true) }
+                TextButton { label: "Reset"; width: 80; onClicked: { Battery.resetDefaults(); root.loadProfile() } }
+                TextButton { label: "Cancel"; width: 80; onClicked: popup.close() }
             }
 
             // ---- flight controller ----------------------------------------------------------
@@ -306,19 +272,13 @@ Item {
                 visible: Battery.canSyncVehicle
                 width: parent.width
                 spacing: 8
-                Text { text: "FLIGHT CONTROLLER" + (root.sync.autopilot ? " · " + root.sync.autopilot : "")
-                       font.family: Token.typography_familyMono; font.pixelSize: 9
-                       font.letterSpacing: 1.2; color: Token.color_ui_textDim }
-                Text {
-                    visible: root.sync.state === "idle"
-                    width: parent.width; wrapMode: Text.WordWrap
-                    text: "Writes this pack to the vehicle's own battery parameters so its %, warnings and failsafes match. You review every change first."
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
-                }
+                Text { text: "Flight Controller" + (root.sync.autopilot ? " · " + root.sync.autopilot : "")
+                       font.pixelSize: 11
+                       color: Token.color_ui_textDim }
                 TextButton {
                     objectName: "batterySyncBtn"
                     visible: root.sync.state === "idle" || root.sync.state === "done" || root.sync.state === "error"
-                    label: "WRITE TO VEHICLE…"
+                    label: "Write to vehicle…"
                     width: parent.width
                     enabled: root.linked && !root.tm.armed
                     onClicked: if (root.commit(false)) Battery.prepareVehicleSync()
@@ -327,7 +287,7 @@ Item {
                     visible: root.sync.message !== ""
                     width: parent.width; wrapMode: Text.WordWrap
                     text: root.sync.message
-                    font.family: Token.typography_familyMono; font.pixelSize: 10; font.weight: Font.DemiBold
+                    font.pixelSize: 11; font.weight: Font.DemiBold
                     color: root.sync.state === "error" ? Token.color_status_danger
                          : root.sync.state === "done" ? Token.color_status_ok : Token.color_ui_text
                 }
@@ -337,16 +297,16 @@ Item {
                         required property var modelData
                         width: parent.width; height: 34; radius: 6
                         color: modelData.status !== "" && !modelData.ok ? Token.color_ui_dangerSoft
-                             : modelData.change ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                             : modelData.change ? Token.color_ui_fill : "transparent"
                         border.width: 1; border.color: Token.color_ui_line
                         Column {
                             anchors.left: parent.left; anchors.leftMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 1
-                            Text { text: modelData.name; font.family: Token.typography_familyMono; font.pixelSize: 10
-                                   font.weight: Font.Bold; color: modelData.change ? "#FFFFFF" : Token.color_ui_textDim }
+                            Text { text: modelData.name; font.pixelSize: 11
+                                   font.weight: Font.DemiBold; color: modelData.change ? Token.color_ui_text : Token.color_ui_textDim }
                             Text { text: modelData.status !== "" && !modelData.ok ? modelData.status : modelData.note
-                                   font.family: Token.typography_familyMono; font.pixelSize: 8
+                                   font.pixelSize: 10
                                    width: 150; elide: Text.ElideRight
                                    color: modelData.status !== "" && !modelData.ok ? Token.color_status_danger : Token.color_text_muted }
                         }
@@ -356,7 +316,7 @@ Item {
                             text: !modelData.change ? modelData.current + "  ✓"
                                 : modelData.ok ? modelData.target + "  ✓"
                                 : modelData.current + " → " + modelData.target
-                            font.family: Token.typography_familyMono; font.pixelSize: 10; font.weight: Font.Bold
+                            font.pixelSize: 11; font.weight: Font.DemiBold
                             color: modelData.ok || !modelData.change ? Token.color_status_ok : Token.color_status_warn
                         }
                     }
@@ -366,13 +326,13 @@ Item {
                     spacing: 8
                     TextButton {
                         objectName: "batterySyncConfirm"
-                        label: root.sync.state === "writing" ? "WRITING…" : root.sync.state === "reading" ? "READING…" : "CONFIRM WRITE"
+                        label: root.sync.state === "writing" ? "Writing…" : root.sync.state === "reading" ? "Reading…" : "Confirm Write"
                         tone: "primary"; width: 150
                         enabled: root.sync.state === "preview" && !root.tm.armed
                                  && (root.sync.rows || []).some(function(r) { return r.change })
                         onClicked: Battery.confirmVehicleSync()
                     }
-                    TextButton { label: "CANCEL"; width: 80; enabled: !root.syncBusy; onClicked: Battery.cancelVehicleSync() }
+                    TextButton { label: "Cancel"; width: 80; enabled: !root.syncBusy; onClicked: Battery.cancelVehicleSync() }
                 }
             }
           }

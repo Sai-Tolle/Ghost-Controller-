@@ -14,7 +14,7 @@ Window {
     height: 700
     minimumWidth: 820
     minimumHeight: 480
-    color: Token.color_hud_videoBg
+    color: Token.color_base_surface
     signal openConnection()
 
     readonly property var tm: Telemetry.telemetry
@@ -54,18 +54,18 @@ Window {
             spacing: 16
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "PARAMETERS"
-                font.family: Token.typography_familyMono; font.pixelSize: 13
-                font.weight: Font.Bold; font.letterSpacing: 3; color: "#FFFFFF"
+                text: "Parameters"
+                font.pixelSize: 13
+                font.weight: Font.DemiBold; color: Token.color_ui_text
             }
             Rectangle { width: 1; height: 22; color: Token.color_ui_line; anchors.verticalCenter: parent.verticalCenter }
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
                 Text {
-                    text: !win.linked ? "NO VEHICLE"
-                          : (Vehicle.firmware !== "" ? Vehicle.firmware : "VEHICLE") + (win.armed ? " · ARMED" : " · DISARMED")
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; font.letterSpacing: 1.4
+                    text: !win.linked ? "No Vehicle"
+                          : (Vehicle.firmware !== "" ? Vehicle.firmware : "Vehicle") + (win.armed ? " · Armed" : " · Disarmed")
+                    font.pixelSize: 11
                     font.weight: Font.DemiBold
                     color: !win.linked ? Token.color_text_muted : win.armed ? Token.color_status_warn : Token.color_status_ok
                 }
@@ -74,7 +74,7 @@ Window {
                     text: Params.state === "loading" ? (Params.total > 0 ? "Loading " + Params.received + " / " + Params.total : "Requesting parameter list…")
                         : Params.count > 0 ? Params.count + " parameters" + (Params.state === "partial" ? " · incomplete" : "")
                         : Params.state === "error" ? Params.message : "Not loaded"
-                    font.family: Token.typography_familyMono; font.pixelSize: 12; font.weight: Font.Bold
+                    font.pixelSize: 13; font.weight: Font.DemiBold
                     color: Params.state === "error" || Params.state === "partial" ? Token.color_status_warn : Token.color_ui_text
                 }
             }
@@ -85,15 +85,15 @@ Window {
             spacing: 8
             TextButton {
                 objectName: "paramsRefreshBtn"
-                label: Params.state === "loading" ? "LOADING…" : "REFRESH"
+                label: Params.state === "loading" ? "Loading…" : "Refresh"
                 enabled: win.linked && Params.available && Params.state !== "loading" && !Params.writing
                 onClicked: {
                     if (Params.pendingCount > 0) win.say("Refreshing keeps your " + Params.pendingCount + " staged edit(s)", true)
                     Params.refresh()
                 }
             }
-            TextButton { label: "LOAD FILE…"; enabled: Params.count > 0 && !Params.writing; onClicked: importDialog.open() }
-            TextButton { label: "SAVE FILE…"; enabled: Params.count > 0; onClicked: exportDialog.open() }
+            TextButton { label: "Load File…"; enabled: Params.count > 0 && !Params.writing; onClicked: importDialog.open() }
+            TextButton { label: "Save File…"; enabled: Params.count > 0; onClicked: exportDialog.open() }
         }
         Rectangle {                                       // load progress
             anchors { left: parent.left; bottom: parent.bottom }
@@ -112,11 +112,11 @@ Window {
         visible: Params.count === 0
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: !Params.available ? "NO MAVLINK BACKEND"
-                : !win.linked ? "NO VEHICLE LINK"
-                : Params.state === "loading" ? "LOADING PARAMETERS" : "NO PARAMETERS LOADED"
-            font.family: Token.typography_familyMono; font.pixelSize: 18
-            font.weight: Font.Bold; font.letterSpacing: 4
+            text: !Params.available ? "No MAVLink backend"
+                : !win.linked ? "No vehicle link"
+                : Params.state === "loading" ? "Loading parameters" : "No parameters loaded"
+            font.pixelSize: 18
+            font.weight: Font.DemiBold
             color: !win.linked ? Token.color_status_danger : Token.color_ui_text
         }
         Text {
@@ -125,12 +125,12 @@ Window {
                 : !win.linked ? "Connect a vehicle to read and write its parameters."
                 : Params.state === "loading" ? "This takes a few seconds over USB / UDP, longer over a telemetry radio."
                 : Params.state === "error" ? Params.message : "Press REFRESH to read them from the vehicle."
-            font.family: Token.typography_familyMono; font.pixelSize: 11; color: Token.color_ui_textDim
+            font.pixelSize: 12; color: Token.color_ui_textDim
         }
         TextButton {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: !win.linked && Params.available
-            label: "CONNECTION…"
+            label: "Connection…"
             onClicked: win.openConnection()
         }
     }
@@ -141,7 +141,7 @@ Window {
         visible: Params.count > 0
         anchors { left: parent.left; top: header.bottom; bottom: footer.top }
         width: 180
-        color: Qt.rgba(1, 1, 1, 0.02)
+        color: Qt.alpha(Token.color_ui_text, 0.03)
         Rectangle { anchors { right: parent.right; top: parent.top; bottom: parent.bottom } width: 1; color: Token.color_ui_line }
         ListView {
             id: groupList
@@ -156,12 +156,12 @@ Window {
                 width: groupList.width; height: 32
                 Rectangle {
                     anchors.fill: parent; anchors.bottomMargin: 2; radius: 6
-                    color: Params.group === "" ? Token.color_ui_accentSoft : (allHover.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                    color: Params.group === "" ? Token.color_ui_accentSoft : (allHover.hovered ? Token.color_ui_fill : "transparent")
                     Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                           text: "ALL"; font.family: Token.typography_familyMono; font.pixelSize: 11; font.weight: Font.Bold
-                           color: Params.group === "" ? Token.color_accent_primary : Token.color_ui_text }
+                           text: "All"; font.pixelSize: 12; font.weight: Font.DemiBold
+                           color: Token.color_ui_text }
                     Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                           text: Params.count; font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_ui_textDim }
+                           text: Params.count; font.pixelSize: 11; color: Token.color_ui_textDim }
                     HoverHandler { id: allHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: if (Params.group !== "") Params.setGroup(Params.group) }
                 }
@@ -171,12 +171,12 @@ Window {
                 required property var modelData
                 readonly property bool on: Params.group === modelData.name
                 width: groupList.width; height: 26; radius: 6
-                color: on ? Token.color_ui_accentSoft : (gHover.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                color: on ? Token.color_ui_accentSoft : (gHover.hovered ? Token.color_ui_fill : "transparent")
                 Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                       text: modelData.name; font.family: Token.typography_familyMono; font.pixelSize: 11
-                       color: on ? Token.color_accent_primary : Token.color_ui_text }
+                       text: modelData.name; font.pixelSize: 12
+                       color: Token.color_ui_text; font.weight: on ? Font.DemiBold : Font.Normal }
                 Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                       text: modelData.count; font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_ui_textDim }
+                       text: modelData.count; font.pixelSize: 11; color: Token.color_ui_textDim }
                 HoverHandler { id: gHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: Params.setGroup(modelData.name) }
             }
@@ -200,24 +200,24 @@ Window {
                 placeholderText: "Search parameters   (Ctrl+F)"
                 placeholderTextColor: Token.color_text_disabled
                 color: Token.color_ui_text
-                font.family: Token.typography_familyMono; font.pixelSize: 12
+                font.pixelSize: 13
                 leftPadding: 10
                 selectByMouse: true
                 onTextChanged: searchDebounce.restart()
-                background: Rectangle { radius: 7; color: Qt.rgba(1, 1, 1, 0.05); border.width: 1
-                                        border.color: search.activeFocus ? Token.color_accent_primary : Token.color_ui_line }
+                background: Rectangle { radius: 8; color: Token.color_ui_fill; border.width: search.activeFocus ? 2 : 0
+                                        border.color: Qt.alpha(Token.color_accent_primary, 0.8) }
                 Timer { id: searchDebounce; interval: 120; onTriggered: Params.setFilter(search.text) }
             }
             TextButton {
                 anchors.verticalCenter: parent.verticalCenter
-                label: "MODIFIED ONLY" + (Params.pendingCount > 0 ? " · " + Params.pendingCount : "")
+                label: "Modified Only" + (Params.pendingCount > 0 ? " · " + Params.pendingCount : "")
                 tone: Params.modifiedOnly ? "primary" : "neutral"
                 onClicked: Params.setModifiedOnly(!Params.modifiedOnly)
             }
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: Params.shown + " shown"
-                font.family: Token.typography_familyMono; font.pixelSize: 10; color: Token.color_ui_textDim
+                font.pixelSize: 11; color: Token.color_ui_textDim
             }
         }
 
@@ -231,12 +231,12 @@ Window {
             readonly property real wNew: 200
             readonly property real wType: 80
             Repeater {
-                model: [{ t: "NAME", w: colHead.wName }, { t: "VALUE", w: colHead.wValue },
-                        { t: "NEW VALUE", w: colHead.wNew }, { t: "TYPE", w: colHead.wType }, { t: "STATUS", w: 200 }]
+                model: [{ t: "Name", w: colHead.wName }, { t: "Value", w: colHead.wValue },
+                        { t: "New Value", w: colHead.wNew }, { t: "Type", w: colHead.wType }, { t: "Status", w: 200 }]
                 delegate: Text {
                     required property var modelData
                     width: modelData.w; text: modelData.t
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; font.letterSpacing: 1.4
+                    font.pixelSize: 11
                     font.weight: Font.DemiBold; color: Token.color_ui_textDim
                 }
             }
@@ -265,8 +265,8 @@ Window {
                 width: table.width; height: 34
                 color: error !== "" ? Qt.alpha(Token.color_status_danger, 0.07)
                      : modified ? Qt.alpha(Token.color_status_warn, 0.07)
-                     : rowHover.hovered ? Qt.rgba(1, 1, 1, 0.035)
-                     : index % 2 ? Qt.rgba(1, 1, 1, 0.012) : "transparent"
+                     : rowHover.hovered ? Qt.alpha(Token.color_ui_text, 0.04)
+                     : index % 2 ? Qt.alpha(Token.color_ui_text, 0.015) : "transparent"
                 HoverHandler { id: rowHover }
                 Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom } width: 2
                             visible: rowItem.modified; color: rowItem.error !== "" ? Token.color_status_danger : Token.color_status_warn }
@@ -277,8 +277,8 @@ Window {
                         width: colHead.wName; elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         text: rowItem.name
-                        font.family: Token.typography_familyMono; font.pixelSize: 12; font.weight: Font.DemiBold
-                        color: "#FFFFFF"
+                        font.pixelSize: 13; font.weight: Font.DemiBold
+                        color: Token.color_ui_text
                     }
                     Item {                                      // current value — click to edit
                         width: colHead.wValue; height: 26
@@ -286,7 +286,7 @@ Window {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: rowItem.value
-                            font.family: Token.typography_familyMono; font.pixelSize: 12
+                            font.pixelSize: 13
                             color: rowItem.modified ? Token.color_ui_textDim : Token.color_ui_text
                             font.strikeout: rowItem.modified
                         }
@@ -300,7 +300,7 @@ Window {
                             visible: !rowItem.isEditing
                             anchors.verticalCenter: parent.verticalCenter
                             text: rowItem.modified ? rowItem.pending : "—"
-                            font.family: Token.typography_familyMono; font.pixelSize: 12
+                            font.pixelSize: 13
                             font.weight: rowItem.modified ? Font.Bold : Font.Normal
                             color: rowItem.modified ? Token.color_status_warn : Token.color_text_disabled
                         }
@@ -311,8 +311,8 @@ Window {
                             visible: rowItem.isEditing
                             anchors.verticalCenter: parent.verticalCenter
                             width: parent.width - 16; height: 28
-                            color: "#FFFFFF"
-                            font.family: Token.typography_familyMono; font.pixelSize: 12
+                            color: Token.color_ui_text
+                            font.pixelSize: 13
                             leftPadding: 8
                             selectByMouse: true
                             onVisibleChanged: if (visible) { text = rowItem.modified ? rowItem.pending : rowItem.value; forceActiveFocus(); selectAll() }
@@ -320,7 +320,7 @@ Window {
                             Keys.onEscapePressed: win.editing = ""
                             Keys.onTabPressed: { win.commitEdit(rowItem.name, text) }
                             onActiveFocusChanged: if (!activeFocus && rowItem.isEditing && win.editError === "") win.editing = ""
-                            background: Rectangle { radius: 5; color: Qt.rgba(1, 1, 1, 0.07); border.width: 1
+                            background: Rectangle { radius: 5; color: Token.color_ui_fill; border.width: 1
                                                     border.color: win.editError !== "" ? Token.color_status_danger : Token.color_accent_primary }
                         }
                     }
@@ -328,7 +328,7 @@ Window {
                         width: colHead.wType
                         anchors.verticalCenter: parent.verticalCenter
                         text: rowItem.ptype
-                        font.family: Token.typography_familyMono; font.pixelSize: 10; color: Token.color_ui_textDim
+                        font.pixelSize: 11; color: Token.color_ui_textDim
                     }
                     Text {
                         width: Math.max(80, table.width - colHead.wName - colHead.wValue - colHead.wNew - colHead.wType - 70)
@@ -338,7 +338,7 @@ Window {
                             : rowItem.isEditing ? "Enter to stage · Esc to cancel"
                             : rowItem.error !== "" ? "⚠ " + rowItem.error
                             : rowItem.modified ? "staged — not written yet" : ""
-                        font.family: Token.typography_familyMono; font.pixelSize: 10
+                        font.pixelSize: 11
                         color: (rowItem.isEditing && win.editError !== "") || rowItem.error !== "" ? Token.color_status_danger
                              : rowItem.isEditing ? Token.color_ui_textDim : Token.color_status_warn
                     }
@@ -348,7 +348,7 @@ Window {
                     anchors.right: parent.right; anchors.rightMargin: 18
                     anchors.verticalCenter: parent.verticalCenter
                     text: "↺"
-                    font.pixelSize: 14; color: undoHover.hovered ? "#FFFFFF" : Token.color_ui_textDim
+                    font.pixelSize: 14; color: undoHover.hovered ? Token.color_ui_text : Token.color_ui_textDim
                     HoverHandler { id: undoHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: Params.unstage(rowItem.name) }
                     ToolTip.visible: undoHover.hovered
@@ -371,19 +371,19 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
             Text {
-                text: Params.writing ? "WRITING " + Params.writeDone + " / " + Params.writeTotal
-                    : Params.pendingCount > 0 ? Params.pendingCount + " STAGED EDIT" + (Params.pendingCount > 1 ? "S" : "")
-                    : "NO PENDING CHANGES"
-                font.family: Token.typography_familyMono; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1.4
+                text: Params.writing ? "Writing " + Params.writeDone + " / " + Params.writeTotal
+                    : Params.pendingCount > 0 ? Params.pendingCount + " staged edit" + (Params.pendingCount > 1 ? "s" : "")
+                    : "No pending changes"
+                font.pixelSize: 12; font.weight: Font.DemiBold
                 color: Params.pendingCount > 0 || Params.writing ? Token.color_status_warn : Token.color_ui_textDim
             }
             Text {
                 text: win.toast !== "" ? win.toast
-                    : win.armed && Params.pendingCount > 0 ? "Vehicle is ARMED — writing is blocked until it is disarmed"
-                    : Params.errorCount > 0 ? Params.errorCount + " edit(s) were not accepted — see STATUS"
-                    : Params.pendingCount > 0 ? "Nothing is sent until you press WRITE. Each write is verified against the vehicle's echo."
-                    : "Click a value to edit it."
-                font.family: Token.typography_familyMono; font.pixelSize: 10
+                    : win.armed && Params.pendingCount > 0 ? "Vehicle is armed — writing is blocked until it is disarmed"
+                    : Params.errorCount > 0 ? Params.errorCount + " edit(s) were not accepted — see Status"
+                    : ""
+                visible: text !== ""
+                font.pixelSize: 11
                 color: win.toast !== "" ? (win.toastOk ? Token.color_status_ok : Token.color_status_danger)
                      : win.armed && Params.pendingCount > 0 || Params.errorCount > 0 ? Token.color_status_danger
                      : Token.color_ui_textDim
@@ -393,16 +393,16 @@ Window {
             anchors.right: parent.right; anchors.rightMargin: 18
             anchors.verticalCenter: parent.verticalCenter
             spacing: 8
-            TextButton { label: "DISCARD ALL"; enabled: Params.pendingCount > 0 && !Params.writing; onClicked: Params.discardAll() }
+            TextButton { label: "Discard All"; enabled: Params.pendingCount > 0 && !Params.writing; onClicked: Params.discardAll() }
             TextButton {
                 objectName: "paramsWriteBtn"
-                label: Params.writing ? "WRITING…" : "WRITE " + (Params.pendingCount > 0 ? Params.pendingCount + " " : "") + "TO VEHICLE"
+                label: Params.writing ? "Writing…" : "Write " + (Params.pendingCount > 0 ? Params.pendingCount + " " : "") + "To Vehicle"
                 tone: "primary"
                 width: 190
                 enabled: Params.pendingCount > 0 && !Params.writing && win.linked && !win.armed
                 onClicked: Params.writeAll()
             }
-            TextButton { label: "CLOSE"; onClicked: win.close() }
+            TextButton { label: "Close"; onClicked: win.close() }
         }
     }
 
@@ -434,7 +434,7 @@ Window {
             if (!r.ok) { win.say("⚠ " + r.error, false); return }
             win.say(r.staged + " staged · " + r.unchanged + " already equal"
                     + (r.unknown ? " · " + r.unknown + " not on this vehicle" : "")
-                    + (r.invalid ? " · " + r.invalid + " invalid" : "") + " — review, then WRITE", r.staged > 0)
+                    + (r.invalid ? " · " + r.invalid + " invalid" : "") + " — review, then Write", r.staged > 0)
             if (r.staged > 0) Params.setModifiedOnly(true)
         }
     }

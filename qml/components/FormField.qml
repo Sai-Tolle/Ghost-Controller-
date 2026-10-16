@@ -10,25 +10,26 @@ Column {
     property alias placeholder: input.placeholderText
     property real fieldWidth: 120
     signal accepted()
-    spacing: 4
+    spacing: 6
     Text {
         text: fld.title
-        font.family: Token.typography_familyMono; font.pixelSize: 9
-        font.letterSpacing: 1.2; color: Token.color_ui_textDim
+        font.pixelSize: Token.typography_size_sm; font.weight: Font.Medium
+        color: Token.color_ui_textDim
     }
     TextField {
         id: input
-        width: fld.fieldWidth; height: 30
+        width: fld.fieldWidth; height: 32
         color: Token.color_ui_text
         placeholderTextColor: Token.color_text_disabled
+        selectionColor: Token.color_accent_primary
         selectByMouse: true
-        font.family: Token.typography_familyMono; font.pixelSize: 12
-        leftPadding: 9
+        font.pixelSize: Token.typography_size_md
+        leftPadding: 10
         onAccepted: fld.accepted()
         background: Rectangle {
-            radius: 6; color: Qt.rgba(1, 1, 1, 0.05)
-            border.width: 1
-            border.color: input.activeFocus ? Token.color_accent_primary : Token.color_ui_line
+            radius: Token.dimension_radius_sm + 1; color: Token.color_ui_fill
+            border.width: input.activeFocus ? 2 : 0
+            border.color: Qt.alpha(Token.color_accent_primary, 0.8)
         }
     }
 }

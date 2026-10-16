@@ -1,6 +1,7 @@
 import QtQuick
 
-// Translucent glass surface used by every HUD panel.
+// Translucent material surface (macOS/iPadOS-style dark "regular material"):
+// tinted fill, 1px hairline, continuous large radius and a soft ambient shadow.
 Rectangle {
     id: panel
 
@@ -9,13 +10,14 @@ Rectangle {
     default property alias content: contentHost.data
     property string title: ""
     property bool accentBorder: false
+    property bool elevated: true
 
-    radius: Token.dimension_radius_md
+    radius: Token.dimension_radius_lg
     color: Token.color_ui_glass
     border.width: Token.dimension_border
-    border.color: accentBorder
-        ? Token.color_ui_accentLine
-        : Token.color_ui_line
+    border.color: accentBorder ? Qt.alpha(Token.color_accent_primary, 0.6) : Token.color_ui_line
+
+    SoftShadow { visible: panel.elevated }
 
     Text {
         id: header
@@ -25,11 +27,9 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: Token.dimension_spacing_md
-        font.family: Token.typography_familyUi
-        font.pixelSize: Token.typography_size_sm
-        font.weight: Token.typography_weight_medium
-        font.letterSpacing: 1.6
-        color: Token.color_text_secondary
+        font.pixelSize: Token.typography_size_md
+        font.weight: Font.DemiBold
+        color: Token.color_ui_text
     }
 
     Item {

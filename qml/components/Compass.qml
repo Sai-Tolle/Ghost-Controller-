@@ -40,7 +40,7 @@ Rectangle {
                 anchors.top: parent.top
                 anchors.topMargin: 3
                 color: index === 0 ? Token.color_status_danger
-                     : index % 9 === 0 ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.5)
+                     : index % 9 === 0 ? Token.color_ui_text : Qt.alpha(Token.color_ui_text, 0.5)
             }
         }
     }
@@ -56,9 +56,8 @@ Rectangle {
             x: compass.r + rr * Math.sin(a) - width / 2
             y: compass.r - rr * Math.cos(a) - height / 2
             text: modelData
-            font.family: Token.typography_familyMono
             font.pixelSize: Math.max(9, compass.r * 0.24)
-            font.weight: Font.Bold
+            font.weight: Font.DemiBold
             color: index === 0 ? Token.color_status_danger : Token.color_ui_text
         }
     }
@@ -88,9 +87,9 @@ Rectangle {
             id: pillText
             anchors.centerIn: parent
             text: compass.pad3(compass.norm) + "  " + ["N","NE","E","SE","S","SW","W","NW"][Math.round(compass.norm / 45) % 8]
-            font.family: Token.typography_familyMono
-            font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 1
-            color: "#FFFFFF"
+            font.features: { "tnum": 1 }
+            font.pixelSize: 11; font.weight: Font.DemiBold
+            color: Token.color_ui_text
         }
     }
 

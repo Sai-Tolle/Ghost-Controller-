@@ -36,66 +36,66 @@ Item {
     Rectangle {
         anchors.top: parent.top; anchors.topMargin: root.topInset + 12
         anchors.left: parent.left; anchors.leftMargin: 12
-        width: 204
+        width: 220
         height: fdCol.implicitHeight + 24
-        radius: 12
+        radius: Token.dimension_radius_lg
         color: Token.color_ui_glass
         border.width: 1
         border.color: Token.color_ui_line
         z: 5
+        SoftShadow {}
         Column {
             id: fdCol
             anchors.fill: parent
-            anchors.margins: 12
+            anchors.margins: 14
+            anchors.topMargin: 12
             spacing: 0
             Text {
-                text: "FLIGHT DATA"
-                font.family: Token.typography_familyMono
-                font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 2
-                color: Token.color_accent_primary
-                bottomPadding: 8
+                text: "Flight Data"
+                font.pixelSize: Token.typography_size_lg; font.weight: Font.DemiBold
+                color: Token.color_ui_text
+                bottomPadding: 6
             }
-            Rectangle { width: parent.width; height: 1; color: Token.color_ui_line }
             Repeater {
                 model: [
-                    { label: "ALT",     value: root.tm.altitude.toFixed(1),   unit: " m" },
-                    { label: "SPEED",   value: root.tm.speed.toFixed(1),      unit: " m/s" },
-                    { label: "CLIMB",   value: (root.tm.climb >= 0 ? "+" : "") + root.tm.climb.toFixed(1), unit: " m/s" },
-                    { label: "HEADING", value: root.tm.heading.toFixed(1),    unit: "°" },
-                    { label: "ROLL",    value: root.tm.roll.toFixed(1),       unit: "°" },
-                    { label: "PITCH",   value: root.tm.pitch.toFixed(1),      unit: "°" },
-                    { label: "YAW",     value: root.tm.heading.toFixed(1),    unit: "°" },
+                    { label: "Altitude",     value: root.tm.altitude.toFixed(1),   unit: " m" },
+                    { label: "Speed",   value: root.tm.speed.toFixed(1),      unit: " m/s" },
+                    { label: "Climb",   value: (root.tm.climb >= 0 ? "+" : "") + root.tm.climb.toFixed(1), unit: " m/s" },
+                    { label: "Heading", value: root.tm.heading.toFixed(1),    unit: "°" },
+                    { label: "Roll",    value: root.tm.roll.toFixed(1),       unit: "°" },
+                    { label: "Pitch",   value: root.tm.pitch.toFixed(1),      unit: "°" },
+                    { label: "Yaw",     value: root.tm.heading.toFixed(1),    unit: "°" },
                 ]
                 delegate: Item {
                     id: fdRow
                     required property var modelData
-                    width: fdCol.width; height: 24
+                    required property int index
+                    width: fdCol.width; height: 28
+                    Rectangle { visible: fdRow.index > 0; anchors.top: parent.top; width: parent.width; height: 1; color: Token.color_ui_line }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: fdRow.modelData.label
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 9; font.letterSpacing: 1.2
+                        font.pixelSize: 13
                         color: Token.color_ui_textDim
                     }
                     Text {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.tm.connected ? fdRow.modelData.value + fdRow.modelData.unit : "—"
-                        font.family: Token.typography_familyMono
-                        font.pixelSize: 12; font.weight: Font.Bold
-                        color: "#FFFFFF"
+                        font.features: { "tnum": 1 }
+                        font.pixelSize: 13; font.weight: Font.DemiBold
+                        color: Token.color_ui_text
                     }
-                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Token.color_ui_line; opacity: 0.5 }
                 }
             }
         }
     }
 
-    // ---- MAP HUD pill (top centre) ---------------------------------------------------------
+    // ---- speed / heading pill (bottom left; top centre belongs to the alert banner) -------------
     Rectangle {
-        anchors.top: parent.top; anchors.topMargin: root.topInset + 12
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: hudRow.implicitWidth + 28; height: 32; radius: 16
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 16
+        anchors.left: parent.left; anchors.leftMargin: 12
+        width: hudRow.implicitWidth + 28; height: 34; radius: 17
         color: Token.color_ui_glass
         border.width: 1
         border.color: Token.color_ui_line
@@ -106,19 +106,10 @@ Item {
             spacing: 12
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "MAP HUD  ·  " + (root.tm.connected ? root.tm.speed.toFixed(1) + " m/s" : "—")
-                      + "  ·  " + Math.round((root.tm.heading % 360 + 360) % 360) + "°"
-                font.family: Token.typography_familyMono
-                font.pixelSize: 11; font.letterSpacing: 1
+                text: (root.tm.connected ? root.tm.speed.toFixed(1) + " m/s" : "—")
+                      + "   " + Math.round((root.tm.heading % 360 + 360) % 360) + "°"
+                font.pixelSize: 13; font.weight: Font.Medium
                 color: Token.color_ui_text
-            }
-            Text {
-                visible: text !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.tm.extra && root.tm.extra.velocity && root.tm.extra.velocity.source ? root.tm.extra.velocity.source : ""
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
-                color: Token.color_text_muted
             }
         }
     }
@@ -130,42 +121,33 @@ Item {
         spacing: 8
         z: 5
         Rectangle {
-            width: offRow.implicitWidth + 24; height: 36; radius: 9
-            color: Token.color_ui_glass
+            width: offRow.implicitWidth + 28; height: 36; radius: 18
+            color: offHover.hovered || uploadPanel.visible ? Token.color_ui_glassStrong : Token.color_ui_glass
             border.width: 1
-            border.color: MapBridge.overlayActive ? Token.color_ui_accentLine : Token.color_ui_line
+            border.color: Token.color_ui_line
             Row {
                 id: offRow
                 anchors.centerIn: parent
                 spacing: 6
-                Text { anchors.verticalCenter: parent.verticalCenter; text: "⤒"; font.pixelSize: 12
-                       color: MapBridge.overlayActive ? Token.color_accent_primary : Token.color_ui_textDim }
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "layers"; size: 16
+                       color: MapBridge.overlayActive ? Token.color_accent_primary : Token.color_ui_text }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: MapBridge.overlayActive ? "MAP ✓" : "OFFLINE"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 10; font.letterSpacing: 1.2
+                    text: MapBridge.overlayActive ? "Custom Map" : "Offline Map"
+                    font.pixelSize: 13; font.weight: Font.Medium
                     color: MapBridge.overlayActive ? Token.color_accent_primary : Token.color_ui_textDim
                 }
             }
-            HoverHandler { cursorShape: Qt.PointingHandCursor }
+            HoverHandler { id: offHover; cursorShape: Qt.PointingHandCursor }
             TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: uploadPanel.visible = !uploadPanel.visible }
         }
         Rectangle {
             objectName: "mapCollapse"
-            width: 36; height: 36; radius: 9
-            color: collapseHover.hovered ? Token.color_ui_accentSoft : Token.color_ui_glass
+            width: 36; height: 36; radius: 18
+            color: collapseHover.hovered ? Token.color_ui_glassStrong : Token.color_ui_glass
             border.width: 1
-            border.color: Token.color_ui_lineStrong
-            Canvas {
-                anchors.centerIn: parent; width: 16; height: 16
-                onPaint: {
-                    var c = getContext("2d"); c.reset()
-                    c.strokeStyle = "#A9D2FF"; c.lineWidth = 1.8; c.lineCap = "round"
-                    c.beginPath(); c.moveTo(2, 9); c.lineTo(7, 9); c.lineTo(7, 14)
-                    c.moveTo(14, 7); c.lineTo(9, 7); c.lineTo(9, 2); c.stroke()
-                }
-            }
+            border.color: Token.color_ui_line
+            Icon { anchors.centerIn: parent; name: "collapse"; size: 17; color: Token.color_ui_text }
             HoverHandler { id: collapseHover; cursorShape: Qt.PointingHandCursor }
             TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: root.closeRequested() }
         }
@@ -177,29 +159,24 @@ Item {
         visible: false
         anchors.top: parent.top; anchors.topMargin: root.topInset + 56
         anchors.right: parent.right; anchors.rightMargin: 12
-        width: 264
-        height: upCol.implicitHeight + 28
-        radius: 12
+        width: 280
+        height: upCol.implicitHeight + 32
+        radius: Token.dimension_radius_lg
         color: Token.color_ui_glassStrong
         border.width: 1
-        border.color: Token.color_ui_lineStrong
+        border.color: Token.color_ui_line
         z: 20
+        SoftShadow {}
 
         Column {
             id: upCol
             anchors.fill: parent
-            anchors.margins: 14
-            spacing: 10
-            Item {
-                width: parent.width; height: 20
-                Text { text: "OFFLINE MAP CONFIG"; font.family: Token.typography_familyMono
-                       font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 1.6; color: Token.color_ui_text }
-                Text { anchors.right: parent.right; text: "✕"; font.pixelSize: 13; color: Token.color_ui_textDim
-                       TapHandler { onTapped: uploadPanel.visible = false } }
-            }
+            anchors.margins: 16
+            spacing: 12
+            PanelTitle { text: "Offline Map"; onClosed: uploadPanel.visible = false }
             TextButton {
                 width: parent.width; height: 30
-                label: root.pendingImage.toString() !== "" ? "Image selected ✓" : (MapBridge.overlayActive ? (MapBridge.overlay.label || "Image loaded ✓") : "+ CHOOSE IMAGE")
+                label: root.pendingImage.toString() !== "" ? "Image selected ✓" : (MapBridge.overlayActive ? (MapBridge.overlay.label || "Image loaded ✓") : "Choose Image…")
                 onClicked: fileDialog.open()
             }
             GridLayout {
@@ -215,14 +192,13 @@ Item {
                 width: parent.width
                 text: root.uploadError
                 wrapMode: Text.WordWrap
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
+                font.pixelSize: 11
                 color: Token.color_status_danger
             }
             Row {
                 spacing: 8
                 TextButton {
-                    label: "SAVE"; tone: "primary"; width: 120
+                    label: "Save"; tone: "primary"; width: 120
                     onClicked: {
                         var img = root.pendingImage.toString() !== "" ? root.pendingImage.toString()
                                  : (MapBridge.overlayActive ? MapBridge.overlay.url : "")
@@ -235,17 +211,9 @@ Item {
                 }
                 TextButton {
                     visible: MapBridge.overlayActive
-                    label: "CLEAR"; tone: "danger"
+                    label: "Clear"; tone: "danger"
                     onClicked: { MapBridge.setOverlayImage("", "", "", "", "", ""); root.pendingImage = ""; uploadPanel.visible = false }
                 }
-            }
-            Text {
-                width: parent.width
-                text: "Used when no basemap tiles can load.\nCopy corner coordinates from any online map."
-                wrapMode: Text.WordWrap
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
-                color: Token.color_text_muted
             }
         }
     }
@@ -262,9 +230,8 @@ Item {
         anchors.bottom: parent.bottom; anchors.bottomMargin: 4
         anchors.right: parent.right; anchors.rightMargin: 12
         z: 5
-        text: (MapBridge.fallbackGrid ? "NO BASEMAP" : MapBridge.statusText) + " · z" + map.zoom
-        font.family: Token.typography_familyMono
-        font.pixelSize: 9
+        text: (MapBridge.fallbackGrid ? "No Basemap" : MapBridge.statusText) + " · z" + map.zoom
+        font.pixelSize: 11
         color: Token.color_text_muted
     }
 }

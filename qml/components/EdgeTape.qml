@@ -29,20 +29,18 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.title
-            font.family: Token.typography_familyMono
-            font.pixelSize: 9
-            font.letterSpacing: 2
-            font.weight: Font.DemiBold
-            color: Token.color_ui_textDim
+            font.pixelSize: Token.typography_size_sm
+            font.weight: Font.Medium
+            color: Qt.rgba(1, 1, 1, 0.75)
             style: Text.Outline
-            styleColor: Qt.rgba(0, 0, 0, 0.7)
+            styleColor: Qt.rgba(0, 0, 0, 0.35)
         }
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: root.width - 16
-            height: 38
-            radius: 8
+            height: 44
+            radius: Token.dimension_radius_md
             color: Token.color_ui_glass
             border.width: 1
             border.color: Token.color_ui_line
@@ -52,16 +50,15 @@ Item {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.readout
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 20
-                    font.weight: Font.Bold
-                    color: "#FFFFFF"
+                    font.features: { "tnum": 1 }
+                    font.pixelSize: 22
+                    font.weight: Font.DemiBold
+                    color: Token.color_ui_text
                 }
                 Text {
                     id: unitText
                     text: root.unit
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 9
+                    font.pixelSize: 11
                     color: Token.color_ui_textDim
                 }
             }
@@ -94,17 +91,18 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: tick.current ? 22 : 12
                             height: tick.current ? 2 : 1
-                            color: tick.current ? Token.color_accent_primary : Qt.rgba(1, 1, 1, 0.55)
+                            radius: height / 2
+                            color: tick.current ? Token.color_accent_primary : Qt.rgba(1, 1, 1, 0.5)
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: (root.base + (4 - tick.index)) * root.step
-                            font.family: Token.typography_familyMono
+                            font.features: { "tnum": 1 }
                             font.pixelSize: tick.current ? 13 : 11
                             font.weight: tick.current ? Font.Bold : Font.Normal
                             color: tick.current ? "#FFFFFF" : Qt.rgba(0.91, 0.93, 0.97, 0.65)
                             style: Text.Outline
-                            styleColor: Qt.rgba(0, 0, 0, 0.55)
+                            styleColor: Qt.rgba(0, 0, 0, 0.3)
                         }
                     }
                 }
@@ -115,9 +113,7 @@ Item {
             visible: root.sourceNote !== ""
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.sourceNote
-            font.family: Token.typography_familyMono
-            font.pixelSize: 8
-            font.letterSpacing: 1
+            font.pixelSize: 10
             color: Token.color_text_muted
         }
     }

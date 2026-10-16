@@ -14,6 +14,14 @@ Popup {
     padding: 18
     anchors.centerIn: Overlay.overlay
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Token.motion_fast; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: Token.motion_normal; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+    }
+    exit: Transition {
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Token.motion_fast; easing.type: Easing.InCubic }
+        NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Token.motion_fast }
+    }
 
     // ---- editable copy of the config ---------------------------------------------------
     property string fMode: "auto"
@@ -47,43 +55,27 @@ Popup {
     readonly property color statusTone: Link.status === "connected" ? Token.color_status_ok
                                       : Link.status === "disconnected" || Link.status === "unavailable" ? Token.color_text_muted
                                       : Link.status === "retrying" ? Token.color_status_danger : Token.color_status_warn
-    readonly property string statusText: Link.status === "connected" ? "CONNECTED"
-                                       : Link.status === "waiting" ? "WAITING FOR HEARTBEAT"
-                                       : Link.status === "retrying" ? "RETRYING"
-                                       : Link.status === "disconnected" ? "DISCONNECTED"
-                                       : Link.status === "unavailable" ? "UNAVAILABLE" : "CONNECTING"
+    readonly property string statusText: Link.status === "connected" ? "Connected"
+                                       : Link.status === "waiting" ? "Waiting for heartbeat"
+                                       : Link.status === "retrying" ? "Retrying"
+                                       : Link.status === "disconnected" ? "Disconnected"
+                                       : Link.status === "unavailable" ? "Unavailable" : "Connecting"
 
     background: Rectangle {
-        radius: 12; color: Token.color_ui_glassStrong
-        border.width: 1; border.color: Token.color_ui_lineStrong
+        radius: Token.dimension_radius_xl; color: Token.color_ui_glassStrong
+        border.width: 1; border.color: Token.color_ui_line
     }
     Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.45) }
 
     contentItem: Column {
         spacing: 12
 
-        Row {
-            width: parent.width
-            Text {
-                text: "CONNECTION"
-                font.family: Token.typography_familyMono; font.pixelSize: 11
-                font.weight: Font.Bold; font.letterSpacing: 2; color: Token.color_ui_text
-                width: parent.width - closeX.width
-            }
-            Text {
-                id: closeX
-                text: "✕"; font.pixelSize: 13; color: Token.color_ui_textDim
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: root.close() }
-            }
-        }
-        Rectangle { width: parent.width; height: 1; color: Token.color_ui_line }
+        PanelTitle { width: parent.width; text: "Connection"; onClosed: root.close() }
 
         // ---- live status ------------------------------------------------------------------
         Rectangle {
-            width: parent.width; height: statusCol.implicitHeight + 20; radius: 8
-            color: Qt.alpha(root.statusTone, 0.08)
-            border.width: 1; border.color: Qt.alpha(root.statusTone, 0.45)
+            width: parent.width; height: statusCol.implicitHeight + 24; radius: 10
+            color: Token.color_ui_fill
             Column {
                 id: statusCol
                 anchors.left: parent.left; anchors.leftMargin: 12
@@ -97,20 +89,20 @@ Popup {
                     Text {
                         objectName: "linkStatusText"
                         text: root.statusText
-                        font.family: Token.typography_familyMono; font.pixelSize: 11
-                        font.weight: Font.Bold; font.letterSpacing: 1.4; color: root.statusTone
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold; color: Token.color_ui_text
                     }
                 }
                 Text {
                     width: parent.width; elide: Text.ElideMiddle
                     text: Link.target !== "" ? Link.target : "—"
-                    font.family: Token.typography_familyMono; font.pixelSize: 10; color: Token.color_ui_text
+                    font.pixelSize: 12; color: Token.color_ui_textDim
                 }
                 Text {
                     visible: Link.error !== "" && Link.status !== "connected"
                     width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
                     text: Link.error
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
+                    font.pixelSize: 12; color: Token.color_status_danger
                 }
             }
             TextButton {
@@ -120,29 +112,23 @@ Popup {
                 anchors.verticalCenter: parent.verticalCenter
                 width: 112
                 enabled: Link.available
-                label: Link.enabled ? "DISCONNECT" : "CONNECT"
+                label: Link.enabled ? "Disconnect" : "Connect"
                 tone: Link.enabled ? "danger" : "ok"
                 onClicked: Link.enabled ? Link.disconnectLink() : Link.connectLink()
             }
         }
 
         // ---- link type ------------------------------------------------------------------------
-        SectionLabel { text: "LINK TYPE" }
+        SectionLabel { text: "Link Type" }
         SegControl {
             width: parent.width
-            options: [{ id: "auto", label: "AUTO" }, { id: "udp", label: "UDP" },
-                      { id: "tcp", label: "TCP" }, { id: "serial", label: "SERIAL" }]
+            options: [{ id: "auto", label: "Auto" }, { id: "udp", label: "UDP" },
+                      { id: "tcp", label: "TCP" }, { id: "serial", label: "Serial" }]
             current: root.fMode
             onPicked: function(id) { root.fMode = id }
         }
 
         // AUTO
-        Text {
-            visible: root.fMode === "auto"
-            width: parent.width; wrapMode: Text.WordWrap
-            text: "Uses the first USB serial flight controller it finds, otherwise listens for UDP on 127.0.0.1:14550 (PX4 / ArduPilot SITL)."
-            font.family: Token.typography_familyMono; font.pixelSize: 10; color: Token.color_text_muted
-        }
 
         // UDP
         Column {
@@ -151,7 +137,7 @@ Popup {
             spacing: 10
             SegControl {
                 width: parent.width
-                options: [{ id: "udpin", label: "LISTEN (udpin)" }, { id: "udpout", label: "SEND TO (udpout)" }]
+                options: [{ id: "udpin", label: "Listen (udpin)" }, { id: "udpout", label: "Send To (udpout)" }]
                 current: root.fRole
                 onPicked: function(id) {
                     if (id === "udpin" && udpHost.text === "127.0.0.1") udpHost.text = "0.0.0.0"
@@ -160,15 +146,8 @@ Popup {
             }
             Row {
                 spacing: 10
-                FormField { id: udpHost; objectName: "udpHost"; title: root.fRole === "udpin" ? "LISTEN ADDRESS" : "VEHICLE HOST / IP"; fieldWidth: 250 }
-                FormField { id: udpPort; objectName: "udpPort"; title: "PORT"; fieldWidth: 90 }
-            }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap
-                text: root.fRole === "udpin"
-                      ? "Listen: the vehicle / radio / SITL sends to this GCS. 0.0.0.0 accepts from any network interface."
-                      : "Send to: this GCS initiates the link to a vehicle or companion computer at that address."
-                font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
+                FormField { id: udpHost; objectName: "udpHost"; title: root.fRole === "udpin" ? "Listen Address" : "Vehicle Host / IP"; fieldWidth: 250 }
+                FormField { id: udpPort; objectName: "udpPort"; title: "Port"; fieldWidth: 90 }
             }
         }
 
@@ -179,13 +158,8 @@ Popup {
             spacing: 10
             Row {
                 spacing: 10
-                FormField { id: tcpHost; title: "HOST / IP"; fieldWidth: 250 }
-                FormField { id: tcpPort; title: "PORT"; fieldWidth: 90 }
-            }
-            Text {
-                width: parent.width; wrapMode: Text.WordWrap
-                text: "ArduPilot SITL serves MAVLink on TCP 5760."
-                font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
+                FormField { id: tcpHost; title: "Host / IP"; fieldWidth: 250 }
+                FormField { id: tcpPort; title: "Port"; fieldWidth: 90 }
             }
         }
 
@@ -196,8 +170,8 @@ Popup {
             spacing: 8
             Row {
                 spacing: 10
-                FormField { id: serialPort; title: "PORT"; fieldWidth: 250; placeholder: "/dev/ttyACM0" }
-                FormField { id: baud; title: "BAUD"; fieldWidth: 90 }
+                FormField { id: serialPort; title: "Port"; fieldWidth: 250; placeholder: "/dev/ttyACM0" }
+                FormField { id: baud; title: "Baud"; fieldWidth: 90 }
             }
             Flow {
                 width: parent.width; spacing: 4
@@ -213,17 +187,17 @@ Popup {
             }
             Row {
                 spacing: 8
-                SectionLabel { text: "DETECTED PORTS"; anchors.verticalCenter: parent.verticalCenter }
-                TextButton { label: "RESCAN"; height: 22; onClicked: Link.refreshPorts() }
+                SectionLabel { text: "Detected Ports"; anchors.verticalCenter: parent.verticalCenter }
+                TextButton { label: "Rescan"; height: 22; onClicked: Link.refreshPorts() }
             }
             Column {
                 width: parent.width
                 spacing: 4
                 Text {
                     visible: Link.serialPorts.length === 0
-                    text: "No serial devices found — plug in the flight controller or radio and RESCAN."
+                    text: "No serial devices found"
                     width: parent.width; wrapMode: Text.WordWrap
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
+                    font.pixelSize: 11; color: Token.color_text_muted
                 }
                 Repeater {
                     model: Link.serialPorts
@@ -231,7 +205,7 @@ Popup {
                         required property var modelData
                         readonly property bool on: serialPort.text === modelData.device
                         width: parent.width; height: 28; radius: 6
-                        color: on ? Token.color_ui_accentSoft : (pHover.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                        color: on ? Token.color_ui_accentSoft : (pHover.hovered ? Token.color_ui_fill : "transparent")
                         border.width: 1; border.color: on ? Token.color_ui_accentLine : Token.color_ui_line
                         Text {
                             anchors.left: parent.left; anchors.leftMargin: 10
@@ -239,7 +213,7 @@ Popup {
                             anchors.verticalCenter: parent.verticalCenter
                             elide: Text.ElideRight
                             text: modelData.device + (modelData.description ? "   " + modelData.description : "")
-                            font.family: Token.typography_familyMono; font.pixelSize: 10
+                            font.pixelSize: 11
                             color: on ? Token.color_accent_primary : Token.color_ui_text
                         }
                         HoverHandler { id: pHover; cursorShape: Qt.PointingHandCursor }
@@ -258,28 +232,22 @@ Popup {
                 anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - sw.width - 10
                 spacing: 2
-                Text { text: "AUTO-CONNECT"; font.family: Token.typography_familyMono; font.pixelSize: 10
-                       font.weight: Font.Bold; font.letterSpacing: 1.2; color: Token.color_ui_text }
-                Text {
-                    width: parent.width; wrapMode: Text.WordWrap
-                    text: root.fAuto ? "Backend connects at startup and keeps reconnecting after a drop."
-                                     : "App starts disconnected — press CONNECT when ready."
-                    font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_text_muted
-                }
+                Text { text: "Connect automatically"; font.pixelSize: 13
+                       color: Token.color_ui_text }
             }
             Rectangle {                                       // toggle switch
                 id: sw
                 objectName: "autoConnectSwitch"
                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                width: 42; height: 22; radius: 11
-                color: root.fAuto ? Token.color_ui_okSoft : Qt.rgba(1, 1, 1, 0.06)
-                border.width: 1; border.color: root.fAuto ? Token.color_ui_okLine : Token.color_ui_lineStrong
-                Rectangle {
-                    width: 16; height: 16; radius: 8
+                width: 44; height: 26; radius: 13
+                color: root.fAuto ? Token.color_status_ok : Token.color_ui_fillPressed
+                Behavior on color { ColorAnimation { duration: Token.motion_fast } }
+                Rectangle {                                   // iOS-style knob
+                    width: 22; height: 22; radius: 11
                     anchors.verticalCenter: parent.verticalCenter
-                    x: root.fAuto ? parent.width - width - 3 : 3
-                    color: root.fAuto ? Token.color_status_ok : Token.color_ui_textDim
-                    Behavior on x { NumberAnimation { duration: Token.motion_fast } }
+                    x: root.fAuto ? parent.width - width - 2 : 2
+                    color: "#FFFFFF"
+                    Behavior on x { NumberAnimation { duration: Token.motion_normal; easing.type: Easing.OutCubic } }
                 }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: root.fAuto = !root.fAuto }
@@ -288,23 +256,18 @@ Popup {
 
         // ---- result + actions ------------------------------------------------------------------------
         Text {
-            width: parent.width; elide: Text.ElideMiddle
-            text: "→ " + Link.preview(root.form())
-            font.family: Token.typography_familyMono; font.pixelSize: 9; color: Token.color_ui_textDim
-        }
-        Text {
             visible: root.errorText !== "" || root.savedText !== ""
             width: parent.width; wrapMode: Text.WordWrap
             text: root.errorText !== "" ? root.errorText : root.savedText
-            font.family: Token.typography_familyMono; font.pixelSize: 10
+            font.pixelSize: 11
             color: root.errorText !== "" ? Token.color_status_danger : Token.color_status_ok
         }
         Row {
             spacing: 8
-            TextButton { objectName: "linkApplyBtn"; label: "APPLY & CONNECT"; tone: "primary"; width: 140
+            TextButton { objectName: "linkApplyBtn"; label: "Apply & Connect"; tone: "primary"; width: 140
                          enabled: Link.available; onClicked: root.commit(true) }
-            TextButton { label: "SAVE"; width: 80; onClicked: root.commit(false) }
-            TextButton { label: "CLOSE"; width: 80; onClicked: root.close() }
+            TextButton { label: "Save"; width: 80; onClicked: root.commit(false) }
+            TextButton { label: "Close"; width: 80; onClicked: root.close() }
         }
     }
 }

@@ -49,7 +49,7 @@ UI_HINTS = {
 }
 
 UI_LABELS = {
-    "auto": "AUTO",
+    "auto": "Automatic",
     "udp_rtp": "RTP 5600",
     "rtsp": "RTSP",
     "mjpeg": "MJPEG",

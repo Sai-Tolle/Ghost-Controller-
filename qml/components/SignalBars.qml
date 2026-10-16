@@ -8,19 +8,19 @@ Item {
     property int level: 0
     property int bars: 5
     property color tone: Token.color_status_ok
-    implicitWidth: bars * 6 - 2
-    implicitHeight: 20
+    implicitWidth: bars * 5 - 1.5
+    implicitHeight: 15
     width: implicitWidth; height: implicitHeight
     Repeater {
         model: root.bars
         Rectangle {
             required property int index
-            x: index * 6
-            width: 4
-            height: 6 + index * 3
+            x: index * 5
+            width: 3.5
+            height: 4 + index * 2.5
             anchors.bottom: parent.bottom
-            radius: 1
-            color: index < root.level ? root.tone : Qt.rgba(1, 1, 1, 0.2)
+            radius: 1.25
+            color: index < root.level ? root.tone : Qt.alpha(Token.color_ui_text, 0.2)
         }
     }
 }

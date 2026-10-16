@@ -28,32 +28,33 @@ Rectangle {
     // ---- left cluster ----------------------------------------------------------
     Row {
         anchors.left: parent.left
-        anchors.leftMargin: 14
+        anchors.leftMargin: 12
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 14
+        spacing: 6
 
         Item {                                        // logo + GCS menu
             id: logoBtn
             objectName: "logoBtn"
             anchors.verticalCenter: parent.verticalCenter
-            width: logoRow.implicitWidth + 12
-            height: 38
+            width: logoRow.implicitWidth + 16
+            height: 36
             Rectangle {
                 anchors.fill: parent
-                radius: 8
-                color: menu.opened || logoHover.hovered ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                radius: Token.dimension_radius_md
+                color: menu.opened ? Token.color_ui_fillPressed : logoHover.hovered ? Token.color_ui_fill : "transparent"
+                Behavior on color { ColorAnimation { duration: Token.motion_fast } }
             }
             Row {
                 id: logoRow
                 anchors.centerIn: parent
                 spacing: 9
-                Item {
+                Item {                                // theme-matched mark (both PNGs are derived from Logo.jpg)
                     width: 26; height: 26
                     anchors.verticalCenter: parent.verticalCenter
                     Image {
                         id: logo
                         anchors.fill: parent
-                        source: Qt.resolvedUrl("../../assets/Logo.jpg")
+                        source: Qt.resolvedUrl(Token.theme === "light" ? "../../assets/Logo-mark-dark.png" : "../../assets/Logo-mark.png")
                         fillMode: Image.PreserveAspectCrop
                         mipmap: true
                         smooth: true
@@ -69,37 +70,34 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: "G"
-                            font.family: Token.typography_familyMono
                             font.pixelSize: 13
-                            font.weight: Font.Bold
-                            color: "#FFFFFF"
+                            font.weight: Font.DemiBold
+                            color: Token.color_ui_text
                         }
                     }
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "GHOST CONTROLLER"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
-                    font.letterSpacing: 2.4
-                    color: "#FFFFFF"
+                    text: "Ghost Controller"
+                    font.pixelSize: 14
+                    font.weight: Font.DemiBold
+                    color: Token.color_ui_text
                 }
                 Rectangle {                           // unmistakable: this is NOT a real vehicle
                     visible: root.sim
                     anchors.verticalCenter: parent.verticalCenter
-                    width: simTag.implicitWidth + 12; height: 18; radius: 4
+                    width: simTag.implicitWidth + 14; height: 20; radius: 10
                     color: Token.color_ui_warnSoft
-                    border.width: 1; border.color: Token.color_status_warn
-                    Text { id: simTag; anchors.centerIn: parent; text: "SIMULATION"
-                           font.family: Token.typography_familyMono; font.pixelSize: 9
-                           font.weight: Font.Bold; font.letterSpacing: 1.4; color: Token.color_status_warn }
+                    Text { id: simTag; anchors.centerIn: parent; text: "Simulation"
+                           font.pixelSize: 11
+                           font.weight: Font.DemiBold; color: Token.color_status_warn }
                 }
-                Text {
+                Icon {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: menu.opened ? "▴" : "▾"
-                    font.pixelSize: 10
+                    name: "chevron.down"; size: 11; weight: 1.6
                     color: Token.color_ui_textDim
+                    rotation: menu.opened ? 180 : 0
+                    Behavior on rotation { NumberAnimation { duration: Token.motion_fast; easing.type: Easing.OutCubic } }
                 }
             }
             HoverHandler { id: logoHover; cursorShape: Qt.PointingHandCursor }
@@ -108,38 +106,53 @@ Rectangle {
             Popup {
                 id: menu
                 y: logoBtn.height + 8
-                width: 220
-                padding: 4
+                width: 232
+                padding: 5
                 closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                transformOrigin: Popup.Top
+                enter: Transition {
+                    NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Token.motion_fast; easing.type: Easing.OutCubic }
+                    NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Token.motion_normal; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+                }
+                exit: Transition {
+                    NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Token.motion_fast; easing.type: Easing.InCubic }
+                    NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Token.motion_fast }
+                }
                 background: Rectangle {
-                    radius: 10
+                    radius: Token.dimension_radius_md
                     color: Token.color_ui_glassStrong
                     border.width: 1
-                    border.color: Token.color_ui_lineStrong
+                    border.color: Token.color_ui_line
                 }
                 contentItem: Column {
                     Repeater {
-                        model: [{ text: "Mission Planner", act: "planner" },
-                                { text: "Parameters", act: "params" },
-                                { text: "Connection", act: "link" },
-                                { text: "Video Source", act: "video" }]
+                        model: [{ text: "Mission Planner", act: "planner", icon: "map" },
+                                { text: "Parameters", act: "params", icon: "gear" },
+                                { text: "Connection", act: "link", icon: "link" },
+                                { text: "Video Source", act: "video", icon: "video" }]
                         delegate: Item {
                             id: mi
                             required property var modelData
                             objectName: "menu_" + modelData.act
-                            width: menu.availableWidth; height: 32
+                            width: menu.availableWidth; height: 28
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 6
-                                color: miHover.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+                                radius: 5
+                                color: miHover.hovered ? Token.color_accent_primary : "transparent"
+                            }
+                            Icon {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 9
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: mi.modelData.icon; size: 15; weight: 1.5
+                                color: miHover.hovered ? "#FFFFFF" : Token.color_ui_textDim
                             }
                             Text {
                                 anchors.left: parent.left
-                                anchors.leftMargin: 10
+                                anchors.leftMargin: 32
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: mi.modelData.text
-                                font.family: Token.typography_familyUi
-                                font.pixelSize: 12
+                                font.pixelSize: 13
                                 color: Token.color_ui_text
                             }
                             HoverHandler { id: miHover; cursorShape: Qt.PointingHandCursor }
@@ -156,21 +169,42 @@ Rectangle {
                             }
                         }
                     }
-                    Rectangle { width: menu.availableWidth; height: 1; color: Token.color_ui_line }
+                    Item { width: menu.availableWidth; height: 11
+                           Rectangle { anchors.centerIn: parent; width: parent.width - 16; height: 1; color: Token.color_ui_line } }
+                    Column {                          // appearance: dark / light / follow the OS
+                        objectName: "appearance"
+                        width: menu.availableWidth
+                        leftPadding: 10; rightPadding: 10; topPadding: 2; bottomPadding: 6
+                        spacing: 6
+                        Text {
+                            text: "Appearance"
+                            font.pixelSize: 11; font.weight: Font.DemiBold
+                            color: Token.color_text_muted
+                        }
+                        SegControl {
+                            width: parent.width - 20
+                            options: [{ id: "dark", label: "Dark" }, { id: "light", label: "Light" },
+                                      { id: "system", label: "Auto" }]
+                            current: Theme.preference
+                            onPicked: function(id) { Theme.setPreference(id) }
+                        }
+                    }
+                    Item { width: menu.availableWidth; height: 11
+                           Rectangle { anchors.centerIn: parent; width: parent.width - 16; height: 1; color: Token.color_ui_line } }
                     Item {                            // about row
                         width: menu.availableWidth; height: 30
                         Text {
                             anchors.left: parent.left; anchors.leftMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Ghost Controller"
-                            font.family: Token.typography_familyUi; font.pixelSize: 11
+                            font.pixelSize: 12
                             color: Token.color_ui_textDim
                         }
                         Text {
                             anchors.right: parent.right; anchors.rightMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
                             text: "v" + AppInfo.version
-                            font.family: Token.typography_familyMono; font.pixelSize: 10
+                            font.pixelSize: 11
                             color: Token.color_ui_textDim
                         }
                     }
@@ -178,7 +212,7 @@ Rectangle {
             }
         }
 
-        Rectangle { width: 1; height: 24; color: Token.color_ui_line; anchors.verticalCenter: parent.verticalCenter }
+        Rectangle { width: 1; height: 20; color: Token.color_ui_line; anchors.verticalCenter: parent.verticalCenter }
         ModeSelector { anchors.verticalCenter: parent.verticalCenter }
         GpsIndicator { anchors.verticalCenter: parent.verticalCenter }
 
@@ -196,20 +230,16 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
             Text {
-                text: "FIRMWARE"
-                font.family: Token.typography_familyMono
-                font.pixelSize: 9
-                font.letterSpacing: 1.4
-                font.weight: Font.DemiBold
+                text: "Firmware"
+                font.pixelSize: 11
                 color: Token.color_ui_textDim
             }
             Text {
                 text: root.linked && Vehicle.firmware !== "" ? Vehicle.firmware : "—"
-                font.family: Token.typography_familyMono
                 font.pixelSize: 13
-                font.weight: Font.Bold
+                font.weight: Font.DemiBold
                 color: Vehicle.firmware === "PX4" ? Token.color_accent_primary
-                     : Vehicle.firmware === "ArduPilot" ? "#34D8B0" : Token.color_text_muted
+                     : Vehicle.firmware === "ArduPilot" ? "#63E6E2" : Token.color_text_muted
             }
         }
 
@@ -224,27 +254,23 @@ Rectangle {
             readonly property color tone: !root.linked ? Token.color_text_muted
                                         : armed ? Token.color_status_warn
                                         : notReady ? Token.color_status_danger : Token.color_status_ok
-            height: 28
-            width: pillRow.implicitWidth + 24
-            radius: 7
-            color: !root.linked ? "transparent" : armed ? Token.color_ui_warnSoft
-                 : notReady ? Token.color_ui_dangerSoft : Token.color_ui_okSoft
-            border.width: 1
-            border.color: Qt.alpha(tone, pillHover.hovered ? 0.95 : 0.6)
+            height: 30
+            width: pillRow.implicitWidth + 26
+            radius: height / 2
+            color: Qt.alpha(tone, pillHover.hovered ? 0.26 : 0.16)
+            Behavior on color { ColorAnimation { duration: Token.motion_fast } }
             Row {
                 id: pillRow
                 anchors.centerIn: parent
                 spacing: 7
-                Rectangle { width: 6; height: 6; radius: 3; color: pill.tone; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { width: 8; height: 8; radius: 4; color: pill.tone; anchors.verticalCenter: parent.verticalCenter }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: !root.linked ? (Link.status === "disconnected" ? "DISCONNECTED" : "NO LINK") : pill.armed ? "ARMED"
-                          : pill.notReady ? "NOT READY" + (Vehicle.healthReason && Vehicle.healthReason !== "OK" ? " · " + Vehicle.healthReason : "")
-                          : "DISARMED"
-                    font.family: Token.typography_familyMono
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.6
+                    text: !root.linked ? (Link.status === "disconnected" ? "Disconnected" : "No Link") : pill.armed ? "Armed"
+                          : pill.notReady ? "Not Ready" + (Vehicle.healthReason && Vehicle.healthReason !== "OK" ? " · " + Vehicle.healthReason : "")
+                          : "Disarmed"
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
                     color: pill.tone
                 }
             }
