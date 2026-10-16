@@ -9,15 +9,69 @@ from serial.tools import list_ports
 
 HEARTBEAT_TIMEOUT = 5.0
 
+# AUTO mode listens here when no serial link answers. 0.0.0.0 (like QGC) so a
+# Wi-Fi bridge / companion sending to this machine's LAN address is heard, not
+# only SITL on loopback.
+DEFAULT_FALLBACK = "udpin:0.0.0.0:14550"
+# AUTO tries the configured baud first, then these: SiK/RFD telemetry radios
+# ship at 57600, flight controllers over USB/UART are usually 115200.
+AUTO_BAUDS = (57600, 115200)
+PI_UART = "/dev/serial0"
+
+
+def _pi_uart_is_console() -> bool:
+    """True when the kernel console owns the Pi's GPIO UART (raspi-config
+    'login shell over serial' left on): never open it then — the console
+    corrupts MAVLink and our heartbeats would land in a login prompt."""
+    try:
+        cmdline = open("/proc/cmdline").read()
+    except OSError:
+        return False
+    real = os.path.basename(os.path.realpath(PI_UART))
+    return any(f"console={dev}" in cmdline for dev in ("serial0", "serial1", real))
+
+
 # PORT AUTO-DETECTION
-def detect_hardware_port() -> Optional[str]:
-    ports = list_ports.comports()
-    for port in ports:
+def detect_hardware_ports() -> list:
+    """USB serial devices first, then the Raspberry Pi GPIO UART
+    (/dev/serial0) when it is enabled and not the system console."""
+    found = []
+    for port in list_ports.comports():
         # Linux: ttyUSB/ttyACM; macOS: cu.usbmodem/cu.usbserial; Windows: COMx
         if any(x in port.device for x in ("ttyUSB", "ttyACM", "usbmodem", "usbserial")) \
                 or port.device.upper().startswith("COM"):
-            return port.device
-    return None
+            found.append(port.device)
+    if os.path.exists(PI_UART) and not _pi_uart_is_console():
+        found.append(PI_UART)
+    return found
+
+
+def detect_hardware_port() -> Optional[str]:
+    ports = detect_hardware_ports()
+    return ports[0] if ports else None
+
+
+def explain_link_error(exc: Exception, target: Optional[str]) -> str:
+    """Turn transport errors into something a field operator can act on."""
+    text = str(exc)
+    where = target or "the port"
+    if isinstance(exc, PermissionError) or "Errno 13" in text or "Permission denied" in text:
+        return (f"Permission denied on {where}. Add your user to the dialout group: "
+                "sudo usermod -aG dialout $USER  (type it exactly — $USER is filled in "
+                "by the shell), then log out and back in or reboot.")
+    if "Errno 16" in text or "busy" in text.lower():
+        return (f"{where} is in use by another program (another GCS, MAVProxy, "
+                "ModemManager or brltty). Close it, or remove that package.")
+    if "Errno 2" in text or "No such file" in text:
+        return f"{where} not found — is the radio/flight controller plugged in?"
+    if "Errno 98" in text or "Address already in use" in text:
+        return (f"{where}: UDP port already in use — another GCS (QGroundControl, "
+                "MAVProxy) is listening on it. Close it or pick another port.")
+    if isinstance(exc, TimeoutError) and target and not target.startswith(("udp", "tcp")):
+        return (f"No vehicle heartbeat on {where}. Check wiring (TX↔RX), that the "
+                "flight controller's port runs MAVLink, and the baud rate "
+                "(telemetry radios 57600, USB 115200).")
+    return text
 
 
 class MAVLinkConnection:
@@ -116,7 +170,7 @@ class MAVLinkConnection:
         if self.connection_string:
             conn = self.connection_string
             return conn if conn.startswith(("udp", "tcp", "mcast")) else f"{conn} @ {self.baud}"
-        return "auto (serial → " + os.getenv("MAVLINK_FALLBACK", "udpin:127.0.0.1:14550") + ")"
+        return "auto (serial → " + os.getenv("MAVLINK_FALLBACK", DEFAULT_FALLBACK) + ")"
 
     # CONNECTION CREATION
     def _create_connection(self) -> Any:
@@ -132,21 +186,29 @@ class MAVLinkConnection:
                 self.active_target = f"{conn} @ {self.baud}"
                 return mavutil.mavlink_connection(conn, baud=self.baud)
 
-        hw = detect_hardware_port()
-        if hw:
-            print(f"[MAV] Using hardware: {hw} at {self.baud} baud")
-            self.conn_type = "hardware"
-            self.active_target = f"{hw} @ {self.baud}"
-            return mavutil.mavlink_connection(hw, baud=self.baud)
-
-        if os.getenv("MAVLINK_REQUIRE_CONNECTION", "0") == "1":
+        # AUTO: rotate through every (serial port × baud) candidate, then the
+        # UDP fallback, one per attempt. It used to try only the first USB
+        # port at a single baud (115200 by default), so a 57600 telemetry
+        # radio or the Pi's GPIO UART could never connect in AUTO.
+        ports = detect_hardware_ports()
+        require = os.getenv("MAVLINK_REQUIRE_CONNECTION", "0") == "1"
+        if require and not ports:
             raise RuntimeError("No MAVLink serial device found")
+        bauds = [self.baud] + [b for b in AUTO_BAUDS if b != self.baud]
+        candidates = [(port, baud) for port in ports for baud in bauds]
+        if not require:
+            candidates.append((os.getenv("MAVLINK_FALLBACK", DEFAULT_FALLBACK), None))
+        port, baud = candidates[max(0, self.attempts - 1) % len(candidates)]
 
-        fallback = os.getenv("MAVLINK_FALLBACK", "udpin:127.0.0.1:14550")
-        print(f"[MAV] Falling back to {fallback}")
-        self.conn_type = "network"
-        self.active_target = fallback
-        return mavutil.mavlink_connection(fallback)
+        if baud is None:
+            print(f"[MAV] Auto: listening on {port}")
+            self.conn_type = "network"
+            self.active_target = port
+            return mavutil.mavlink_connection(port)
+        print(f"[MAV] Auto: trying {port} at {baud} baud")
+        self.conn_type = "hardware"
+        self.active_target = f"{port} @ {baud}"
+        return mavutil.mavlink_connection(port, baud=baud)
 
     def _wait_vehicle_heartbeat(self, candidate, generation: int, timeout: float = 10.0):
         """Like wait_heartbeat(), but (a) skips heartbeats from other GCSs,
@@ -241,9 +303,9 @@ class MAVLinkConnection:
                     self._close_candidate(candidate)
                     if self._aborted(generation):
                         return False
-                    self.last_error = str(exc)
+                    self.last_error = explain_link_error(exc, self.active_target)
                     print(f"[MAV] Connection attempt failed: {exc}")
-                    self._publish_connection("disconnected", error=str(exc))
+                    self._publish_connection("disconnected", error=self.last_error)
                     self._wake.wait(2.0)      # back-off, cut short by reconfigure
 
     def _close_candidate(self, candidate=None):

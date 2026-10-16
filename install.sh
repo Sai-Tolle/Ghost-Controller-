@@ -187,8 +187,16 @@ EOF
         gio set "$DESKTOP_DIR/ghost-controller.desktop" metadata::trusted true 2>/dev/null || true
     fi
 
-    say "Serial telemetry radios need the dialout group (log out/in after):"
-    echo "    sudo usermod -aG dialout \$USER"
+    # Print the command with the real username already filled in: testers
+    # copied "$USER" literally into other tools / typed "$USER$", and the Pi
+    # never got serial access.
+    ME=$(id -un)
+    if id -nG "$ME" 2>/dev/null | tr ' ' '\n' | grep -qx dialout; then
+        say "Serial access: $ME is already in the dialout group."
+    else
+        say "Serial telemetry radios need the dialout group. Run this, then REBOOT:"
+        echo "    sudo usermod -aG dialout $ME"
+    fi
     say "Installed. Launch it by double-clicking the Ghost Controller icon
        on your Desktop, or from a terminal:"
     echo "    $HOME/Ghost-Controller-/launch-ghost.sh"

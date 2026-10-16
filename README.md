@@ -39,7 +39,7 @@ The HUD **never pretends a vehicle is connected**:
 * `python main.py` → the VENDORED backend (this repo's `backend/mavlink`)
   starts in-process and listens on the configured MAVLink transport.
   (`backend/gcs.env` or `MAVLINK_CONNECTION`; default
-  `udpin:127.0.0.1:14550`). The HUD stays DISCONNECTED — with the listening
+  `udpin:0.0.0.0:14550`). The HUD stays DISCONNECTED — with the listening
   address shown — until a real vehicle heartbeat arrives.
 * `GH_BACKEND_PATH=/path/to/backend` points at an external backend checkout
   for A/B debugging; `GH_BACKEND_PATH=none` disables the backend entirely.

@@ -132,6 +132,12 @@ def list_serial_ports() -> list[dict]:
     for p in sorted(list_ports.comports(), key=lambda p: p.device):
         desc = p.description if p.description and p.description != "n/a" else ""
         out.append({"device": p.device, "description": desc})
+    # Raspberry Pi GPIO UART: offer the stable alias (it points at ttyAMA0 or
+    # ttyS0 depending on model/Bluetooth), which comports() often omits.
+    if os.path.exists("/dev/serial0"):
+        real = os.path.realpath("/dev/serial0")
+        out = [p for p in out if p["device"] != real]
+        out.insert(0, {"device": "/dev/serial0", "description": f"Raspberry Pi GPIO UART ({os.path.basename(real)})"})
     return out
 
 
@@ -267,5 +273,6 @@ class LinkController(QObject):
             return err
         conn = connection_string(cfg)
         if conn is None:
-            return "auto · serial autodetect, then " + os.getenv("MAVLINK_FALLBACK", "udpin:127.0.0.1:14550")
+            return ("auto · tries each serial port at 57600 / 115200, then "
+                    + os.getenv("MAVLINK_FALLBACK", "udpin:0.0.0.0:14550"))
         return f"{conn} @ {cfg['baud']} baud" if cfg["mode"] == "serial" else conn

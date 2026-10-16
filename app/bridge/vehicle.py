@@ -239,7 +239,7 @@ class VehicleController(QObject):
         conn_string = getattr(conn, "connection_string", None) if conn else None
         if conn_string:
             return str(conn_string)
-        return os.environ.get("MAVLINK_FALLBACK", "udpin:127.0.0.1:14550")
+        return os.environ.get("MAVLINK_FALLBACK", "udpin:0.0.0.0:14550")
 
     # ---- commands (same queue as the web REST API) -----------------------
 

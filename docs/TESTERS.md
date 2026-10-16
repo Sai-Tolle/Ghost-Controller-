@@ -171,11 +171,30 @@ pre-built ARM64 package.
 
 ### Serial / telemetry permissions on the Pi
 
-USB telemetry radios and UARTs need group `dialout`:
+USB telemetry radios and UARTs need group `dialout`. Copy this line
+**exactly as written** — `$USER` is not a placeholder, the shell replaces it
+with your username (do not type `$USER$` or `<username>`):
 
 ```bash
-sudo usermod -aG dialout $USER   # log out and back in after
+sudo usermod -aG dialout $USER
 ```
+
+Then **reboot** (or log out and back in) — the new group only applies to new
+logins. Check with `groups`: the list must contain `dialout`. The default
+user made by Raspberry Pi Imager is usually already in it.
+
+### Using the Pi's GPIO UART (flight controller wired to pins 8/10)
+
+1. `sudo raspi-config` → *Interface Options* → *Serial Port*:
+   "login shell over serial?" **No**, "serial port hardware enabled?" **Yes**,
+   then reboot. If the login shell stays on, it owns the UART and MAVLink never
+   gets through (Ghost Controller's Auto mode skips the UART in that case).
+2. Use **`/dev/serial0`**, not `/dev/ttyAMA0`: on Pi 3/4 `ttyAMA0` is wired to
+   Bluetooth and the GPIO pins are `ttyS0`; `serial0` always points at the
+   right one.
+3. Wire TX→RX and RX→TX, common GND, and set the flight controller port to
+   MAVLink at the same baud (ArduPilot `SERIALx_PROTOCOL=2`, `SERIALx_BAUD=57`
+   for 57600; PX4 `MAV_x_CONFIG` + `SER_TELx_BAUD`).
 
 ---
 
@@ -187,12 +206,30 @@ sudo usermod -aG dialout $USER   # log out and back in after
 | Link | Setting |
 |------|---------|
 | Wi-Fi / companion (MAVLink over UDP) | UDP listen `0.0.0.0:14550` |
-| USB telemetry radio | Serial `/dev/ttyUSB0` (or `ttyACM0`) @ 57600 |
-| RPi SiK/UART radio | Serial `/dev/ttyAMA0` @ 57600 |
+| USB telemetry radio (SiK/RFD) | Serial `/dev/ttyUSB0` @ 57600 |
+| Flight controller on USB | Serial `/dev/ttyACM0` @ 115200 |
+| FC / radio on Pi GPIO UART | Serial `/dev/serial0` @ 57600 (match the FC) |
+
+**Auto** (the default) tries every USB serial device and `/dev/serial0` at
+57600 and 115200, then listens for UDP on `0.0.0.0:14550` — each try waits
+10 s, so give it up to a minute, or pick the exact link above to connect
+immediately.
 
 3. Power the drone — the status should flip to **CONNECTED** with live
-   telemetry (battery, GPS, mode). If it stays DISCONNECTED, the HUD will
-   show the address it is listening on — check firewall/port and radio wiring.
+   telemetry (battery, GPS, mode). If it stays DISCONNECTED, the Connection
+   dialog (click the status pill, top right) shows the exact error.
+
+### Not connecting? (most common first)
+
+| Connection dialog says | Fix |
+|------|-----|
+| *Permission denied on /dev/…* | Not in `dialout`, or not rebooted since adding it — see above. |
+| *No vehicle heartbeat on /dev/…* | Wrong baud (radio 57600 / USB 115200), TX/RX swapped, or the FC port is not set to MAVLink. On the GPIO UART also check the serial console is off. |
+| *… is in use by another program* | Close QGroundControl / MAVProxy. `sudo apt remove brltty modemmanager` if they grab USB radios. |
+| *UDP port already in use* | Another GCS is listening on 14550 — close it. |
+| Waiting on UDP forever | The drone must send to **this Pi's IP**, port 14550; check `sudo ufw status` / firewall. |
+
+Run `ls -l /dev/serial0 /dev/ttyUSB* /dev/ttyACM*` to see which devices exist.
 
 **Dry run without a drone:** `./main.py --sim` starts a simulated vehicle
 demo (clearly marked simulated — it can never be mistaken for a live link).

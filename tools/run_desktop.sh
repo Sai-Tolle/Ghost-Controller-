@@ -4,7 +4,7 @@
 # The backend is VENDORED in this repository (backend/mavlink) and runs
 # in-process — no sibling GCS checkout is needed or attached. Set
 # MAVLINK_CONNECTION in backend/gcs.env (or override it here) to choose the
-# vehicle transport; with nothing set it falls back to udpin:127.0.0.1:14550
+# vehicle transport; with nothing set it falls back to udpin:0.0.0.0:14550
 # (the PX4 SITL convention). To point the runtime at an external backend
 # checkout for debugging: GH_BACKEND_PATH=/path/to/backend tools/run_desktop.sh
 #
