@@ -1,5 +1,10 @@
 # Ghost Handler Desktop — runtime
-PySide6-Essentials~=6.8
+# Pinned: PySide6 6.12.0 corrupts the heap within ~1 min in this app
+# ("free(): invalid pointer", SIGABRT) — reproduced from source and in the
+# v0.2.0/v0.2.1 AppImages, which CI built with 6.12.0 because this line used
+# to say ~=6.8. 6.11.2 is verified (multi-minute SITL soak). Re-test before
+# bumping.
+PySide6-Essentials==6.11.2
 
 # Vendored backend (backend/mavlink) runs in-process and needs:
 pymavlink~=2.4
@@ -13,10 +18,11 @@ pyserial>=3.5
 # build without ffmpeg headers — this broke the CI build on Python 3.12),
 # while 14.2.0 has wheels for 3.11/3.12 AND matches Debian trixie's
 # python3-av, so laptop, Pi (apt) and CI all run the same PyAV major.
-numpy
+# numpy / OpenCV are pinned to the versions the release was soak-tested with.
+numpy==2.2.6
 av==12.3.0; python_version < "3.11"
 av==14.2.0; python_version >= "3.11"
-opencv-python-headless
+opencv-python-headless==5.0.0.93
 
 # (brought in transitively by the backend's gcs.env loader, listed explicitly
 # so the desktop venv always has it)

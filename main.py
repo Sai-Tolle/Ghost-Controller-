@@ -32,6 +32,32 @@ if SMOKE:
 
 sys.path.insert(0, str(APP_ROOT))
 
+
+def _enable_crash_log() -> None:
+    """Native crashes (Qt, FFmpeg, PySide) kill the process without a Python
+    traceback, and a desktop launch has no terminal — the app just vanishes.
+    faulthandler writes every thread's stack to a file on SIGSEGV/SIGABRT so
+    a tester can send it. ~/.cache/ghost-controller/crash.log"""
+    import faulthandler
+    import os
+    import time
+
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "ghost-controller"
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        log = cache / "crash.log"
+        if log.exists() and log.stat().st_size > 1_000_000:   # keep it bounded
+            log.unlink()
+        fh = open(log, "a", buffering=1)
+        fh.write(f"\n=== start {time.strftime('%Y-%m-%d %H:%M:%S')} pid {os.getpid()} ===\n")
+        faulthandler.enable(file=fh, all_threads=True)
+        globals()["_CRASH_LOG_FH"] = fh                       # keep the fd open for the handler
+    except OSError:
+        faulthandler.enable()                                 # fall back to stderr
+
+
+_enable_crash_log()
+
 from app.application import run  # noqa: E402
 
 if __name__ == "__main__":

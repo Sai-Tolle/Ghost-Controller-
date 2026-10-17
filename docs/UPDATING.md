@@ -94,5 +94,8 @@ If `git pull` refuses because files were edited locally, run
   file.
 - **"CHECKSUM MISMATCH"** — the download was damaged; run the installer
   again. Nothing was changed.
+- **App closes by itself** — update to v0.2.2 or newer (v0.2.0/v0.2.1 had a
+  crash about a minute after launch). If it still happens, send
+  `~/.cache/ghost-controller/crash.log`.
 - **Pi: app does not start after updating** — re-run the installer; it
   reinstalls missing system packages.

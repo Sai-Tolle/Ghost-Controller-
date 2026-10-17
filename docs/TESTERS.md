@@ -248,4 +248,5 @@ demo (clearly marked simulated — it can never be mistaken for a live link).
 - [ ] `--sim` demo works for offline demonstration
 
 Report issues with: platform (laptop/Pi + distro version), link type
-(UDP/serial), and a screenshot of the HUD.
+(UDP/serial), and a screenshot of the HUD. If the app closed by itself,
+also attach `~/.cache/ghost-controller/crash.log`.
