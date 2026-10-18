@@ -40,6 +40,10 @@ of MultiEffect so panels still render on the software Qt Quick backend).
   `Token.color_ui_text`; keep white only for on-video HUD marks
   (`Token.color_hud_text`) and labels on tinted buttons (`Token.color_ui_onTint`).
   Smoke a theme without saving it: `GH_THEME=light`.
+- HUD ink: anything drawn over live video uses `Token.hudInk` /
+  `Token.hudInkShadow` (writable, set by `Theme.setHudColor("#RRGGBB")` from
+  the menu swatches; presets in `HUD_PRESETS`, app/bridge/theme.py). Canvases
+  must expose `property color ink: Token.hudInk` and repaint `onInkChanged`.
 - `design/tokens.json` — single source of truth (colors, typography, spacing)
 - `qml/theme/Token.qml` — generated from it (do **not** hand-edit;
   regenerate: `.venv-desktop/bin/python tools/gen_tokens.py`)

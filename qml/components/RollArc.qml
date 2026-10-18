@@ -17,8 +17,9 @@ Item {
     Canvas {
         id: arc
         anchors.fill: parent
-        property color ink: Token.color_hud_text
-        property color shadow: Token.color_hud_textShadow
+        property color ink: Token.hudInk
+        property color shadow: Token.hudInkShadow
+        onShadowChanged: requestPaint()
         property color accent: Token.color_accent_primary
         onInkChanged: requestPaint()
         onWidthChanged: requestPaint()
@@ -71,8 +72,8 @@ Item {
         text: Math.abs(root.roll).toFixed(0) + "°"
         font.pixelSize: 11; font.weight: Font.DemiBold
         font.features: { "tnum": 1 }
-        color: Token.color_hud_text
-        style: Text.Outline; styleColor: Token.color_hud_textShadow
+        color: Token.hudInk
+        style: Text.Outline; styleColor: Token.hudInkShadow
         opacity: 0.85
     }
 }

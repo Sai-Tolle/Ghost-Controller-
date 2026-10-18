@@ -63,10 +63,14 @@ Item {
         anchors.centerIn: parent
         width: 220; height: 40
         visible: root.link
+        property color ink: Token.hudInk
+        property color shadow: Token.hudInkShadow
+        onInkChanged: requestPaint()
+        onShadowChanged: requestPaint()
         onPaint: {
             var ctx = getContext("2d"); ctx.reset()
-            ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 5
-            ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2.25
+            ctx.shadowColor = shadow; ctx.shadowBlur = 5
+            ctx.strokeStyle = ink; ctx.lineWidth = 2.25
             ctx.lineCap = "round"; ctx.lineJoin = "round"
             var cx = width / 2, cy = height / 2
             ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.stroke()
@@ -279,9 +283,9 @@ Item {
         anchors.leftMargin: 100
         text: Video.fps.toFixed(0) + " fps"
         font.pixelSize: 11; font.weight: Font.Medium
-        color: Qt.rgba(1, 1, 1, 0.8)
+        color: Qt.alpha(Token.hudInk, 0.85)
         style: Text.Outline
-        styleColor: Qt.rgba(0, 0, 0, 0.6)
+        styleColor: Token.hudInkShadow
     }
 
     // ---- honest centre states -----------------------------------------------------------------------

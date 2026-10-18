@@ -119,4 +119,10 @@ QtObject {
     readonly property real opacity_pressed: 0.16
     readonly property real opacity_disabled: 0.35
     readonly property real opacity_grid: 0.08
+
+    // Operator-chosen ink for marks drawn over live video (heading tape,
+    // ladder, tapes, bore-sight). Defaults to the token; app/bridge/theme.py
+    // overrides it from the saved HUD colour (white is not always visible).
+    property color hudInk: color_hud_text
+    property color hudInkShadow: color_hud_textShadow
 }

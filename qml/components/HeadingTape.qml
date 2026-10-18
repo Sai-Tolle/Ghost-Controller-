@@ -72,10 +72,11 @@ Item {
         anchors.bottom: parent.bottom
         height: 34
         property real h: root.norm
-        property color ink: Token.color_hud_text
-        property color shadow: Token.color_hud_textShadow
+        property color ink: Token.hudInk
+        property color shadow: Token.hudInkShadow
         onHChanged: requestPaint()
         onInkChanged: requestPaint()
+        onShadowChanged: requestPaint()
         onWidthChanged: requestPaint()
         onPaint: {
             var ctx = getContext("2d"); ctx.reset()

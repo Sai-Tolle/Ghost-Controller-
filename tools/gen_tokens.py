@@ -135,6 +135,14 @@ def main() -> int:
         '    property string theme: "dark"',
     ]
     qml.extend(emit_qml_flat(leaves, 4, themed))
+    qml += [
+        "",
+        "    // Operator-chosen ink for marks drawn over live video (heading tape,",
+        "    // ladder, tapes, bore-sight). Defaults to the token; app/bridge/theme.py",
+        "    // overrides it from the saved HUD colour (white is not always visible).",
+        "    property color hudInk: color_hud_text",
+        "    property color hudInkShadow: color_hud_textShadow",
+    ]
     qml.append("}")
     qml.append("")
 

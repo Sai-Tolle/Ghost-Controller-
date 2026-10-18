@@ -16,17 +16,21 @@ Canvas {
     width: 560
     height: 420
 
+    // Operator-chosen HUD ink (Theme ▸ HUD colour) with a contrasting soft
+    // outline; the old fixed white vanished against cloud and snow.
+    property color ink: Token.hudInk
+    property color shadow: Token.hudInkShadow
+    onInkChanged: requestPaint()
+    onShadowChanged: requestPaint()
     onPitchChanged: requestPaint()
     onPaint: {
         var ctx = getContext("2d")
         ctx.reset()
-        // White with a soft shadow, like the bore-sight: the old accent-blue
-        // ladder vanished against sky and water in the video.
-        ctx.strokeStyle = "#FFFFFF"
-        ctx.fillStyle = "#FFFFFF"
+        ctx.strokeStyle = ink
+        ctx.fillStyle = ink
         ctx.lineWidth = 1.5
         ctx.lineCap = "round"
-        ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 4
+        ctx.shadowColor = shadow; ctx.shadowBlur = 4
         // CSS shorthand: quoted family (multi-word) + generic fallback
         ctx.font = "500 11px '" + Token.typography_familyUi + "', sans-serif"
 

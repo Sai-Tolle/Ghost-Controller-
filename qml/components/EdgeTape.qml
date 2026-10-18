@@ -31,9 +31,9 @@ Item {
             text: root.title
             font.pixelSize: Token.typography_size_sm
             font.weight: Font.Medium
-            color: Qt.rgba(1, 1, 1, 0.75)
+            color: Qt.alpha(Token.hudInk, 0.8)
             style: Text.Outline
-            styleColor: Qt.rgba(0, 0, 0, 0.35)
+            styleColor: Qt.alpha(Token.hudInkShadow, 0.5)
         }
 
         Rectangle {
@@ -92,7 +92,7 @@ Item {
                             width: tick.current ? 22 : 12
                             height: tick.current ? 2 : 1
                             radius: height / 2
-                            color: tick.current ? Token.color_accent_primary : Qt.rgba(1, 1, 1, 0.5)
+                            color: tick.current ? Token.hudInk : Qt.alpha(Token.hudInk, 0.5)
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -100,9 +100,9 @@ Item {
                             font.features: { "tnum": 1 }
                             font.pixelSize: tick.current ? 13 : 11
                             font.weight: tick.current ? Font.Bold : Font.Normal
-                            color: tick.current ? "#FFFFFF" : Qt.rgba(0.91, 0.93, 0.97, 0.65)
+                            color: tick.current ? Token.hudInk : Qt.alpha(Token.hudInk, 0.65)
                             style: Text.Outline
-                            styleColor: Qt.rgba(0, 0, 0, 0.3)
+                            styleColor: Qt.alpha(Token.hudInkShadow, 0.45)
                         }
                     }
                 }

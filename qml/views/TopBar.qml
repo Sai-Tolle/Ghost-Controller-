@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import "../components"
 
 // Top bar: [logo · GCS ▾] | MODE ▾ | GPS ▾ | BATT ............ FIRMWARE | ARM pill.
@@ -106,7 +107,7 @@ Rectangle {
             Popup {
                 id: menu
                 y: logoBtn.height + 8
-                width: 232
+                width: 248
                 padding: 5
                 closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
                 transformOrigin: Popup.Top
@@ -187,6 +188,40 @@ Rectangle {
                                       { id: "system", label: "Auto" }]
                             current: Theme.preference
                             onPicked: function(id) { Theme.setPreference(id) }
+                        }
+                        Text {
+                            topPadding: 6
+                            text: "HUD Color"
+                            font.pixelSize: 11; font.weight: Font.DemiBold
+                            color: Token.color_text_muted
+                        }
+                        Row {                         // colour of the marks drawn over video
+                            objectName: "hudSwatches"
+                            spacing: 6
+                            readonly property bool isPreset: {
+                                for (var i = 0; i < Theme.hudPresets.length; i++)
+                                    if (Theme.hudPresets[i].color === Theme.hudColor) return true
+                                return false
+                            }
+                            Repeater {
+                                model: Theme.hudPresets
+                                delegate: Swatch {
+                                    required property var modelData
+                                    objectName: "hud_" + modelData.name
+                                    fill: modelData.color
+                                    selected: Theme.hudColor === modelData.color
+                                    tip: modelData.name
+                                    onClicked: Theme.setHudColor(modelData.color)
+                                }
+                            }
+                            Swatch {                  // custom: shows the picked colour, or a + to open the picker
+                                objectName: "hud_custom"
+                                fill: parent.isPreset ? Token.color_ui_fill : Theme.hudColor
+                                selected: !parent.isPreset
+                                glyph: parent.isPreset ? "plus" : ""
+                                tip: "Custom…"
+                                onClicked: { menu.close(); hudColorDialog.selectedColor = Theme.hudColor; hudColorDialog.open() }
+                            }
                         }
                     }
                     Item { width: menu.availableWidth; height: 11
@@ -275,5 +310,44 @@ Rectangle {
                 }
             }
         }
+    }
+
+    // Round colour swatch (iOS accent-colour picker style): ring when selected.
+    component Swatch: Item {
+        id: sw
+        property color fill: "white"
+        property bool selected: false
+        property string glyph: ""
+        property string tip: ""
+        signal clicked()
+        width: 22; height: 22
+        Rectangle {                                   // selection ring
+            anchors.centerIn: parent
+            width: 22; height: 22; radius: 11
+            color: "transparent"
+            border.width: 2
+            border.color: sw.selected ? Token.color_accent_primary : "transparent"
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: sw.selected ? 14 : 18; height: width; radius: width / 2
+            color: sw.fill
+            border.width: 1
+            border.color: Token.color_ui_lineStrong
+            Behavior on width { NumberAnimation { duration: Token.motion_fast } }
+            Icon { anchors.centerIn: parent; visible: sw.glyph !== ""; name: sw.glyph; size: 11; weight: 1.8
+                   color: Token.color_ui_textDim }
+        }
+        HoverHandler { id: swHover; cursorShape: Qt.PointingHandCursor }
+        ToolTip.visible: swHover.hovered && sw.tip !== ""
+        ToolTip.text: sw.tip
+        ToolTip.delay: 500
+        TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: sw.clicked() }
+    }
+
+    ColorDialog {
+        id: hudColorDialog
+        title: "HUD Color"
+        onAccepted: Theme.setHudColor(selectedColor.toString())
     }
 }
