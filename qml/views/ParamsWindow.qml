@@ -332,12 +332,11 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         elide: Text.ElideRight
                         text: rowItem.isEditing && win.editError !== "" ? "⚠ " + win.editError
-                            : rowItem.isEditing ? "Enter to stage · Esc to cancel"
-                            : rowItem.error !== "" ? "⚠ " + rowItem.error
+                                            : rowItem.error !== "" ? "⚠ " + rowItem.error
                             : rowItem.modified ? "staged — not written yet" : ""
                         font.pixelSize: 11
                         color: (rowItem.isEditing && win.editError !== "") || rowItem.error !== "" ? Token.color_status_danger
-                             : rowItem.isEditing ? Token.color_ui_textDim : Token.color_status_warn
+                             : Token.color_status_warn
                     }
                 }
                 Text {                                          // revert ×

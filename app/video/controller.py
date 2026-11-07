@@ -158,14 +158,14 @@ class VideoController(QObject):
     @Property("QVariantList", constant=True)
     def modeHints(self) -> list:  # noqa: N802
         return [
-            {"mode": "auto", "label": "Automatic", "hint": "Detects H.264 / H.265 RTP or MPEG-TS on UDP 5600"},
-            {"mode": "udp_rtp", "label": "RTP H.264", "hint": "PX4 SITL / drone H.264 on UDP 5600"},
-            {"mode": "udp_h265", "label": "RTP H.265", "hint": "Digital FPV link H.265 on UDP 5600"},
-            {"mode": "udp_ts", "label": "MPEG-TS", "hint": "IP radio encoder MPEG-TS on UDP 5000"},
-            {"mode": "rtsp", "label": "RTSP", "hint": "rtsp://127.0.0.1:8554 or custom URL"},
-            {"mode": "mjpeg", "label": "MJPEG", "hint": "http://192.168.4.1/vision or custom URL"},
-            {"mode": "url", "label": "Stream URL", "hint": "Any rtsp, rtmp, srt, udp, rtp or http stream"},
-            {"mode": "webcam", "label": "USB / HDMI Capture", "hint": "Analog receiver or HDMI through a USB capture device"},
+            {"mode": "auto", "label": "Automatic"},
+            {"mode": "udp_rtp", "label": "RTP H.264"},
+            {"mode": "udp_h265", "label": "RTP H.265"},
+            {"mode": "udp_ts", "label": "MPEG-TS"},
+            {"mode": "rtsp", "label": "RTSP"},
+            {"mode": "mjpeg", "label": "MJPEG"},
+            {"mode": "url", "label": "Stream URL"},
+            {"mode": "webcam", "label": "USB / HDMI Capture"},
         ]
 
     @Property("QVariantList", notify=devicesChanged)

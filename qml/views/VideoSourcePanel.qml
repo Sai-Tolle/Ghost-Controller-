@@ -100,9 +100,8 @@ Rectangle {
                     }
                 }
                 Text {
-                    text: Video.state === "live"
-                          ? Video.sourceLabel + (Video.resolution !== "" ? "  ·  " + Video.resolution : "") + "  ·  " + Video.fps.toFixed(0) + " fps"
-                          : Video.label
+                    visible: det.live
+                    text: Video.sourceLabel + (Video.resolution !== "" ? "  ·  " + Video.resolution : "") + "  ·  " + Video.fps.toFixed(0) + " fps"
                     elide: Text.ElideRight
                     width: det.width - 24
                     font.pixelSize: 12; font.weight: Font.DemiBold

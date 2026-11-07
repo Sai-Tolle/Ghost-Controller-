@@ -193,12 +193,6 @@ Popup {
             Column {
                 width: parent.width
                 spacing: 4
-                Text {
-                    visible: Link.serialPorts.length === 0
-                    text: "No serial devices found"
-                    width: parent.width; wrapMode: Text.WordWrap
-                    font.pixelSize: 11; color: Token.color_text_muted
-                }
                 Repeater {
                     model: Link.serialPorts
                     delegate: Rectangle {

@@ -212,7 +212,6 @@ Item {
         HudCmdButton {
             width: parent.width
             label: "Kill Switch"
-            sublabel: "Double-click"
             tone: "danger"
             onDoubleClicked: Vehicle.kill()
         }
@@ -374,8 +373,6 @@ Item {
         anchors.centerIn: parent
         visible: root.wasLive && (!root.link || !root.showVideo)
         heading: root.link ? qsTr("Video signal lost") : qsTr("Connection Lost")
-        detail: root.link ? qsTr("Waiting for frames from the camera…")
-                          : qsTr("Vehicle link down — reconnecting on %1").arg(Link.target)
         TextButton {
             label: root.link ? qsTr("Video Source") : qsTr("Connection")
             onClicked: root.link ? root.openVideo() : root.openLink()
