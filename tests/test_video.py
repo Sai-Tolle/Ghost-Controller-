@@ -189,6 +189,9 @@ def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detai
             "-f", "lavfi", "-i", "testsrc=size=640x480:rate=15",
             "-c:v", encoder, "-preset", "ultrafast", "-tune", "zerolatency",
             "-pix_fmt", "yuv420p", "-g", "15",
+            # Parameter sets on every keyframe, as live links send them; x265
+            # otherwise sends them once, before a slow receiver is listening.
+            *(["-x265-params", "repeat-headers=1"] if encoder == "libx265" else []),
             "-f", muxer, url,
         ],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
