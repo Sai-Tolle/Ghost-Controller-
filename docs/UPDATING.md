@@ -46,6 +46,17 @@ and AppImageLauncher can use the same feed.)
 
 ---
 
+## Windows
+
+Download and run the newest installer. It upgrades the installed copy in
+place and keeps your settings:
+
+```powershell
+curl.exe -fLo "$env:TEMP\Ghost_Controller-Setup-x86_64.exe" https://github.com/Sai-Tolle/Ghost-Controller-/releases/latest/download/Ghost_Controller-Setup-x86_64.exe; & "$env:TEMP\Ghost_Controller-Setup-x86_64.exe"
+```
+
+---
+
 ## Raspberry Pi (runs from source)
 
 Re-run the same installer — on a Pi it updates the existing checkout

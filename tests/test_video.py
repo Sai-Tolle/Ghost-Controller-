@@ -10,6 +10,9 @@ Covers the M2/M3 video milestone:
                      through the same SDP/PyAV path the worker uses
   5. controller    — VideoController: mode switch, frame property, LIVE state
   6. worker restart — switching kinds stops the previous loop cleanly
+  7. udp_h265/udp_ts — digital FPV and IP radio transports via system ffmpeg
+  8. capture        — USB capture device listing and path validation
+  9. udp_auto / url — auto-detected UDP transports and the catch-all URL source
 
 Usage:
     .venv-desktop/bin/python tests/test_video.py
@@ -23,6 +26,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -154,45 +158,27 @@ def test_mjpeg() -> None:
     server.shutdown()
 
 
-def test_udp_rtp() -> None:
-    """Real RTP/H.264 over UDP: ffmpeg encodes a synthetic pattern to
-    rtp://127.0.0.1:<port> — exactly what PX4 SITL's gz gstreamer camera
-    plugin sends. The worker's SDP/PyAV path must decode it."""
+def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detail: str = "",
+                 expect_detected: str = "") -> None:
+    """Real video over UDP: ffmpeg encodes a synthetic pattern and sends it the
+    way the radio link would. The worker's PyAV path must decode it."""
     ffmpeg = shutil.which("ffmpeg")
-    check("ffmpeg available for RTP test", bool(ffmpeg))
+    check("ffmpeg available for stream test", bool(ffmpeg))
     if not ffmpeg:
         return
     enc = subprocess.run([ffmpeg, "-hide_banner", "-encoders"], capture_output=True, text=True).stdout
-    if "libx264" not in enc:
-        print("SKIP udp_rtp test — system ffmpeg lacks libx264")
+    if encoder not in enc:
+        print(f"SKIP {kind} test — system ffmpeg lacks {encoder}")
         return
 
-    # Pick a free UDP port.
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-
-    # testsrc2 exercises many colors (unlike plain testsrc) so decode errors
-    # would be visible; 15 fps, keyframe every second like SITL cameras.
-    proc = subprocess.Popen(
-        [
-            ffmpeg, "-hide_banner", "-loglevel", "error",
-            "-f", "lavfi", "-i", "testsrc2=size=640x480:rate=15",
-            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-pix_fmt", "yuv420p", "-g", "15",
-            "-f", "rtp", f"rtp://127.0.0.1:{port}",
-        ],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
+    # testsrc at 15 fps, keyframe every second like SITL cameras.
     proc = subprocess.Popen(
         [
             ffmpeg, "-hide_banner", "-loglevel", "error",
             "-f", "lavfi", "-i", "testsrc=size=640x480:rate=15",
-            "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-            "-pix_fmt", "yuv420p", "-g", "15",           # keyframe every second
-            "-f", "rtp", f"rtp://127.0.0.1:{port}",
+            "-c:v", encoder, "-preset", "ultrafast", "-tune", "zerolatency",
+            "-pix_fmt", "yuv420p", "-g", "15",
+            "-f", muxer, url,
         ],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
@@ -201,21 +187,119 @@ def test_udp_rtp() -> None:
 
         hub = FrameHub()
         w = VideoWorker(hub)
-        w.detail = str(port)
+        w.detail = detail or str(port)
         w._thread = threading.Thread(target=w._loop, daemon=True)
         w._thread.start()
-        w.start({"kind": "udp_rtp"})
+        w.start({"kind": kind})
 
         deadline = time.time() + 20
         while time.time() < deadline and hub.frames < 5:
             time.sleep(0.1)
-        check("udp_rtp decodes real H.264/RTP frames", hub.frames >= 5,
+        check(f"{kind} decodes real {encoder}/{muxer} frames", hub.frames >= 5,
               f"frames={hub.frames} err={hub.last_error}")
+        if expect_detected:
+            check(f"{kind} detects {expect_detected}", w.detected == expect_detected, repr(w.detected))
 
         w.stop()
     finally:
         proc.terminate()
         proc.wait(timeout=5)
+
+
+def _free_udp_port() -> int:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def test_udp_rtp() -> None:
+    """The exact transport PX4 SITL's gz gstreamer camera plugin emits."""
+    port = _free_udp_port()
+    _stream_test("udp_rtp", "libx264", "rtp", f"rtp://127.0.0.1:{port}", port)
+
+
+def test_udp_h265() -> None:
+    """The transport OpenIPC ground stations forward."""
+    port = _free_udp_port()
+    _stream_test("udp_h265", "libx265", "rtp", f"rtp://127.0.0.1:{port}", port)
+
+
+def test_udp_ts() -> None:
+    """The transport video encoders behind IP radios send."""
+    port = _free_udp_port()
+    _stream_test("udp_ts", "libx264", "mpegts", f"udp://127.0.0.1:{port}?pkt_size=1316", port)
+
+
+def test_udp_auto() -> None:
+    """Auto must work out each transport on its own."""
+    for encoder, muxer, scheme, label in (("libx264", "rtp", "rtp", "H.264 RTP"),
+                                          ("libx265", "rtp", "rtp", "H.265 RTP"),
+                                          ("libx264", "mpegts", "udp", "MPEG-TS")):
+        port = _free_udp_port()
+        suffix = "?pkt_size=1316" if muxer == "mpegts" else ""
+        _stream_test("udp_auto", encoder, muxer, f"{scheme}://127.0.0.1:{port}{suffix}", port,
+                     expect_detected=label)
+
+
+def test_stream_url() -> None:
+    """The catch-all source plays a stream given only as a URL."""
+    port = _free_udp_port()
+    _stream_test("url", "libx264", "mpegts", f"udp://127.0.0.1:{port}?pkt_size=1316", port,
+                 detail=f"udp://0.0.0.0:{port}")
+
+
+def test_url_rejects_files() -> None:
+    from app.video.worker import FrameHub, VideoWorker
+
+    hub = FrameHub()
+    w = VideoWorker(hub)
+    w.detail = "file:///etc/passwd"
+    w._thread = threading.Thread(target=w._loop, daemon=True)
+    w._thread.start()
+    w.start({"kind": "url"})
+    deadline = time.time() + 5
+    while time.time() < deadline and not hub.last_error:
+        time.sleep(0.05)
+    check("stream URL rejects file://", "enter a stream URL" in (hub.last_error or ""), str(hub.last_error))
+    w.stop()
+
+
+def test_capture_devices() -> None:
+    """Metadata nodes and Pi media blocks must not be listed as cameras."""
+    from app.video.devices import list_capture_devices
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sysfs = Path(tmp)
+        for node, name, index in (("video0", "USB2.0 AV Capture", "0"), ("video1", "USB2.0 AV Capture", "1"),
+                                  ("video10", "bcm2835-codec-decode", "0"), ("video2", "HDMI Capture", "0")):
+            (sysfs / node).mkdir()
+            (sysfs / node / "name").write_text(name + "\n")
+            (sysfs / node / "index").write_text(index + "\n")
+        found = list_capture_devices(sysfs=sysfs)
+    check("capture devices listed by name", found == [
+        {"id": "0", "label": "USB2.0 AV Capture (video0)"},
+        {"id": "2", "label": "HDMI Capture (video2)"},
+    ], str(found))
+
+
+def test_capture_rejects_files() -> None:
+    """A capture source restored from settings must not open arbitrary files."""
+    from app.video.worker import FrameHub, VideoWorker
+
+    hub = FrameHub()
+    w = VideoWorker(hub)
+    w.detail = "movie.mp4"
+    w._thread = threading.Thread(target=w._loop, daemon=True)
+    w._thread.start()
+    w.start({"kind": "webcam"})
+    deadline = time.time() + 5
+    while time.time() < deadline and not hub.last_error:
+        time.sleep(0.05)
+    check("capture rejects a file path", "must be a number" in (hub.last_error or ""), str(hub.last_error))
+    w.stop()
+
 
 def test_controller() -> None:
     from PySide6.QtGui import QGuiApplication
@@ -248,6 +332,14 @@ def test_controller() -> None:
     vc.setMode("udp_rtp")
     check("controller setMode persists", VideoConfig().get_mode() == "udp_rtp")
 
+    check("controller rejects a bad UDP port", vc.setCustomUrl("udp_h265", "70000") is False)
+    check("controller rejects a file as capture device", vc.setCustomUrl("webcam", "movie.mp4") is False)
+    check("controller rejects a file as stream URL", vc.setCustomUrl("url", "file:///etc/passwd") is False)
+    check("controller accepts a UDP port", vc.setCustomUrl("udp_h265", "5601") is True)
+    vc.setMode("udp_h265")
+    check("controller labels the H.265 source", vc.sourceLabel == "udp_h265:5601", vc.sourceLabel)
+    cfg.set_custom_url("udp_h265", "")
+
     vc.shutdown()
     for m, u in old["urls"].items():
         cfg.set_custom_url(m, u)
@@ -260,6 +352,13 @@ def main() -> int:
     test_test_source()
     test_mjpeg()
     test_udp_rtp()
+    test_udp_h265()
+    test_udp_ts()
+    test_udp_auto()
+    test_stream_url()
+    test_url_rejects_files()
+    test_capture_devices()
+    test_capture_rejects_files()
     test_controller()
     print(f"\n{'VIDEO TESTS PASSED' if not FAILURES else str(len(FAILURES)) + ' FAILURES'}")
     return 1 if FAILURES else 0

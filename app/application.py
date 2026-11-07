@@ -163,7 +163,9 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
     video = VideoController(data_lake=lake)
     from app.bridge.link import LinkController
     from app.bridge.params import ParamController
+    from app.bridge.radiosystems import RadioSystems
     link = LinkController(runtime)
+    radios = RadioSystems(video, link)
     params = ParamController(runtime)
     engine.rootContext().setContextProperty("AppInfo", app_info)
     engine.rootContext().setContextProperty("Telemetry", telemetry)
@@ -174,6 +176,7 @@ def run(app_root: Path, smoke: bool = False, driver=None) -> int:
     engine.rootContext().setContextProperty("Video", video)
     engine.rootContext().setContextProperty("DataLake", lake)
     engine.rootContext().setContextProperty("Link", link)
+    engine.rootContext().setContextProperty("Radios", radios)
     engine.rootContext().setContextProperty("Params", params)
     # NOTE: no image://map provider any more — tiles load as file:// URLs
     # (MapBridge.tileUrl). A Python image provider runs on Qt's pixmap-reader

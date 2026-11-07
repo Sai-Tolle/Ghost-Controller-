@@ -84,8 +84,32 @@ On a Raspberry Pi (source install) the same installer command updates the
 checkout (`git pull`) and its Python dependencies, keeping `backend/gcs.env`.
 
 **Not on your distro's list?** Any x86_64 Linux with glibc 2.35 or newer
-works (Ubuntu 22.04+, Debian 12+, current Fedora, Arch…). Testers on Windows/macOS: use a laptop
-with Ubuntu live USB instead — this build is Linux-only.
+works (Ubuntu 22.04+, Debian 12+, current Fedora, Arch…). On Windows, see
+section W below. macOS is not supported yet.
+
+---
+
+## W. Windows 10 / 11 (x86_64)
+
+1. Download **Ghost_Controller-Setup-x86_64.exe** from
+   <https://github.com/Sai-Tolle/Ghost-Controller-/releases/latest>
+   or in PowerShell:
+
+   ```powershell
+   curl.exe -fLo "$env:USERPROFILE\Downloads\Ghost_Controller-Setup-x86_64.exe" https://github.com/Sai-Tolle/Ghost-Controller-/releases/latest/download/Ghost_Controller-Setup-x86_64.exe
+   ```
+
+2. Run it. It installs for your user only, so no admin rights are needed.
+   The installer is not code-signed yet: if Windows SmartScreen says
+   *"Windows protected your PC"*, click **More info → Run anyway**.
+3. On first launch Windows Firewall asks about network access: tick
+   **Private networks** and **Allow**. Without it UDP video and telemetry
+   (ports 5600 / 14550) are silently blocked.
+4. USB telemetry radios show up as `COM3`, `COM4`… under Connection → Serial.
+   SiK / CP210x / FTDI radios may need their USB driver from the maker.
+
+Crash log, if the app closes by itself:
+`%USERPROFILE%\.cache\ghost-controller\crash.log`
 
 ---
 

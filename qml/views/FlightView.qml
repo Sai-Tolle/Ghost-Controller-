@@ -420,11 +420,6 @@ Item {
         tone: off || none ? Token.color_text_muted
             : Link.status === "retrying" ? Token.color_status_danger : Token.color_status_warn
         heading: off ? qsTr("Disconnected") : none ? qsTr("No vehicle backend") : qsTr("No vehicle link")
-        detail: none ? qsTr("Running without a MAVLink backend.")
-              : off ? qsTr("Link is off. Target: %1").arg(Link.target)
-              : Link.status === "waiting" ? qsTr("Listening on %1 — waiting for a heartbeat").arg(Link.target)
-              : qsTr("Trying %1").arg(Link.target)
-        note: !off && !none && Link.error !== "" ? Link.error : ""
         TextButton {
             visible: Link.available && Link.status === "disconnected"
             label: qsTr("Connect"); tone: "primary"

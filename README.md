@@ -100,9 +100,18 @@ TopBar (`GCS ▾ · MODE ▾ · GPS ▾ · BATT ····· FIRMWARE · [ARMED]`)
 
 ## Video
 
-* **auto / udp_rtp** — PX4 SITL / drone H.264 RTP over UDP (QGC convention
-  port 5600), decoded natively via a synthetic SDP + PyAV (no GStreamer).
-  `GH_VIDEO_RTP_PORT` overrides the port.
+* **auto** — listens on UDP 5600 (QGC convention) and plays whichever of
+  H.264 RTP, H.265 RTP or MPEG-TS arrives, decoded natively via PyAV (no
+  GStreamer). `GH_VIDEO_RTP_PORT` overrides the port.
+* **udp_rtp / udp_h265 / udp_ts** — the same transports pinned, on any port.
+* **url** — any network stream FFmpeg reads: rtsp, rtmp, srt, udp, rtp,
+  http/HLS (file paths are refused).
+* **webcam (USB / HDMI Capture)** — analog 5.8 GHz receivers and anything with
+  HDMI out, through a UVC capture device; devices are listed by name on Linux.
+* **Radio systems** (panel → Radio System, `app/bridge/radiosystems.py`) —
+  one tap sets video and telemetry for SIYI, Herelink, Skydroid, OpenIPC,
+  WFB-ng/OpenHD, IP radios, analog and HDMI capture. A connected vehicle's
+  telemetry link is never replaced.
 * **rtsp / mjpeg** — OpenCV/stdlib capture, retried forever until stopped (a
   dead camera never kills the worker thread). Custom URLs are probed first,
   exactly like the backend's source_detector.
@@ -163,7 +172,12 @@ operator's real QSettings (org/app `"Ghost Handler"`).
 ./packaging/build-linux.sh --appimage  # + distributable .AppImage
 ```
 
-Windows installer ships after Linux parity (PyInstaller + Inno Setup).
+```powershell
+.\packaging\build-windows.ps1 -Installer  # dist\Ghost_Controller-Setup-x86_64.exe
+```
+
+CI builds all three (x86_64 + ARM64 AppImage, Windows installer) on every
+`v*` tag and attaches them to the release.
 
 ## Design system / Figma
 

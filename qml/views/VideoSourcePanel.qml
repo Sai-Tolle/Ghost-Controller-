@@ -2,15 +2,17 @@ import QtQuick
 import QtQuick.Controls
 import "../components"
 
-// Bottom-right video source drawer: detected-stream card, AUTO / RTP / RTSP /
-// MJPEG cards with custom-URL fields, feedback strip.
+// Bottom-right video source drawer: detected-stream card, then either the
+// off-the-shelf radio system list or the manual AUTO / RTP / MPEG-TS / RTSP /
+// MJPEG / capture cards with custom-URL fields, feedback strip.
 Rectangle {
     id: root
     property bool open: false
+    property real maxHeight: 640
     signal closeRequested()
 
-    width: 304
-    height: col.implicitHeight + 28
+    width: 324
+    height: Math.min(col.implicitHeight + 28, maxHeight)
     radius: Token.dimension_radius_xl
     color: Token.color_ui_glassStrong
     border.width: 1
@@ -22,6 +24,7 @@ Rectangle {
 
     property string feedbackMsg: ""
     property bool feedbackOk: true
+    property string tab: Radios.current !== "" ? "radio" : "manual"
     Timer { id: fbTimer; interval: 3500; onTriggered: root.feedbackMsg = "" }
     function showFeedback(msg, ok) { feedbackMsg = msg; feedbackOk = ok; fbTimer.restart() }
 
@@ -33,10 +36,16 @@ Rectangle {
         }
     }
 
-    Column {
-        id: col
+    Flickable {
         anchors.fill: parent
         anchors.margins: 14
+        contentHeight: col.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        clip: true
+
+        Column {
+        id: col
+        width: parent.width
         spacing: 10
 
         Item {                                              // header
@@ -95,20 +104,74 @@ Rectangle {
                           ? Video.sourceLabel + (Video.resolution !== "" ? "  ·  " + Video.resolution : "") + "  ·  " + Video.fps.toFixed(0) + " fps"
                           : Video.label
                     elide: Text.ElideRight
-                    width: 260
+                    width: det.width - 24
                     font.pixelSize: 12; font.weight: Font.DemiBold
                     color: Token.color_ui_text
                 }
             }
         }
 
+        SegControl {
+            width: parent.width
+            options: [{ id: "radio", label: "Radio System" }, { id: "manual", label: "Manual" }]
+            current: root.tab
+            onPicked: function(id) { root.tab = id }
+        }
+
+        Repeater {                                         // off-the-shelf radio systems
+            model: root.tab === "radio" ? Radios.systems : []
+            delegate: Rectangle {
+                id: sys
+                required property var modelData
+                readonly property bool selected: Radios.current === modelData.id
+                width: col.width
+                height: sysCol.implicitHeight + 16
+                radius: 9
+                color: selected ? Token.color_ui_accentSoft : (sysHover.hovered ? Token.color_ui_fillHover : Token.color_ui_fill)
+                border.width: 1
+                border.color: selected ? Token.color_ui_accentLine : Token.color_ui_line
+                Column {
+                    id: sysCol
+                    anchors.left: parent.left; anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 10
+                    anchors.topMargin: 8
+                    spacing: 3
+                    Text {
+                        width: parent.width
+                        elide: Text.ElideRight
+                        text: sys.modelData.group + "  ·  " + sys.modelData.label
+                        font.pixelSize: 12; font.weight: Font.DemiBold
+                        color: Token.color_ui_text
+                    }
+                    Text {
+                        visible: sys.selected
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: sys.modelData.note
+                        font.pixelSize: 11
+                        color: Token.color_ui_textDim
+                    }
+                }
+                HoverHandler { id: sysHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler {
+                    gesturePolicy: TapHandler.ReleaseWithinBounds
+                    onTapped: {
+                        var res = Radios.apply(sys.modelData.id)
+                        root.showFeedback(res.message, res.ok)
+                    }
+                }
+            }
+        }
+
         Repeater {
-            model: Video.modeHints
+            model: root.tab === "manual" ? Video.modeHints : []
             delegate: Rectangle {
                 id: card
                 required property var modelData
                 readonly property string mode: modelData.mode
-                readonly property bool urlEditable: mode === "rtsp" || mode === "mjpeg"
+                readonly property bool isUdp: mode.indexOf("udp_") === 0
+                readonly property bool urlEditable: isUdp || mode === "rtsp" || mode === "mjpeg" || mode === "url"
                 readonly property string customUrl: urlEditable ? (Video.customUrls[mode] || "") : ""
                 readonly property bool selected: mode === "auto" ? Video.sourceLabel === "auto"
                                                                  : Video.sourceLabel.indexOf(mode) === 0
@@ -142,7 +205,7 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: urlTag.implicitWidth + 10; height: 14; radius: 3
                                 color: "transparent"; border.width: 1; border.color: Token.color_ui_okLine
-                                Text { id: urlTag; anchors.centerIn: parent; text: "Custom URL"
+                                Text { id: urlTag; anchors.centerIn: parent; text: card.isUdp ? "Port " + card.customUrl : "Custom URL"
                                        font.pixelSize: 10; color: Token.color_status_ok }
                             }
                         }
@@ -168,6 +231,8 @@ Rectangle {
                             color: Token.color_ui_text
                             font.pixelSize: 11
                             placeholderText: card.customUrl !== "" ? card.customUrl
+                                           : card.isUdp ? "UDP port " + Video.defaultUrl(card.mode)
+                                           : card.mode === "url" ? "srt://host:port, rtmp://…, udp://@:5600"
                                            : (card.mode === "rtsp" ? "rtsp://user:pass@host:554/stream" : "http://host:8080/video")
                             placeholderTextColor: Token.color_text_muted
                             leftPadding: 8
@@ -179,8 +244,8 @@ Rectangle {
                             function commit() {
                                 var v = text.trim()
                                 if (v === "") return
-                                Video.setCustomUrl(card.mode, v)
-                                root.showFeedback(card.mode.toUpperCase() + " URL set · saved", true)
+                                if (!Video.setCustomUrl(card.mode, v)) return
+                                root.showFeedback(card.modelData.label + " set · saved", true)
                                 text = ""
                             }
                             Keys.onReturnPressed: commit()
@@ -188,7 +253,45 @@ Rectangle {
                         TextButton { id: setBtn; label: "Set"; tone: "primary"; height: 28; onClicked: urlInput.commit() }
                         TextButton {
                             id: clearBtn; visible: card.customUrl !== ""; label: "Clear"; tone: "danger"; height: 28
-                            onClicked: { Video.setCustomUrl(card.mode, ""); root.showFeedback(card.mode.toUpperCase() + " URL cleared", true) }
+                            onClicked: { Video.setCustomUrl(card.mode, ""); root.showFeedback(card.modelData.label + " cleared", true) }
+                        }
+                    }
+                    Column {                                 // USB capture devices
+                        visible: card.mode === "webcam" && card.selected
+                        width: parent.width
+                        spacing: 4
+                        Repeater {
+                            model: Video.captureDevices
+                            delegate: Rectangle {
+                                required property var modelData
+                                readonly property bool on: Video.captureDevice === modelData.id
+                                width: parent.width; height: 28; radius: 6
+                                color: on ? Token.color_ui_accentSoft : (devHover.hovered ? Token.color_ui_fill : "transparent")
+                                border.width: 1; border.color: on ? Token.color_ui_accentLine : Token.color_ui_line
+                                Text {
+                                    anchors.left: parent.left; anchors.leftMargin: 10
+                                    anchors.right: parent.right; anchors.rightMargin: 10
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    elide: Text.ElideRight
+                                    text: modelData.label
+                                    font.pixelSize: 11
+                                    color: on ? Token.color_accent_primary : Token.color_ui_text
+                                }
+                                HoverHandler { id: devHover; cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: Video.setCustomUrl("webcam", modelData.id) }
+                            }
+                        }
+                        Row {
+                            spacing: 8
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Video.scanningDevices ? "Scanning…"
+                                    : Video.captureDevices.length === 0 ? "No capture devices found" : ""
+                                visible: text !== ""
+                                font.pixelSize: 11; color: Token.color_text_muted
+                            }
+                            TextButton { label: "Rescan"; height: 22; enabled: !Video.scanningDevices
+                                         onClicked: Video.scanCaptureDevices() }
                         }
                     }
                 }
@@ -218,6 +321,7 @@ Rectangle {
                 font.pixelSize: 11
                 color: root.feedbackOk ? Token.color_status_ok : "#FF6961"
             }
+        }
         }
     }
 }

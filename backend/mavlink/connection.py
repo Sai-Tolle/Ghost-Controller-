@@ -215,9 +215,19 @@ class MAVLinkConnection:
         gimbals and companions, which wait_heartbeat() accepted, and (b)
         aborts within 0.5 s when the operator changes or disables the link."""
         deadline = time.monotonic() + timeout
+        next_hello = 0.0
         while time.monotonic() < deadline:
             if self._aborted(generation):
                 return None
+            # A UDP client must speak first: the far end (a radio's ground
+            # unit, say) has no address to send telemetry to until it hears us.
+            if getattr(candidate, "udp_server", True) is False and time.monotonic() >= next_hello:
+                next_hello = time.monotonic() + 1.0
+                try:
+                    candidate.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_GCS,
+                                                 mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
+                except OSError:
+                    pass  # unreachable right now; keep listening until the timeout
             hb = candidate.recv_match(type="HEARTBEAT", blocking=True, timeout=0.5)
             if hb is None:
                 continue

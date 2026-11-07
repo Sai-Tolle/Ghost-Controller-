@@ -8,9 +8,17 @@ UI-facing modes mirror the web panel exactly (VideoSourcePanel.tsx):
     rtsp    RTSP camera
     mjpeg   MJPEG-over-HTTP camera (WiFi boson cam etc.)
 
-Internal-only modes (NOT shown in the panel; used by CI/tests and via
+Desktop-only modes for off-the-shelf video links (app/bridge/radiosystems.py):
+    udp_h265 H.265 RTP over UDP (OpenIPC and other digital FPV links)
+    udp_ts   MPEG-TS over UDP (encoders behind IP radios)
+    webcam   USB capture: analog receiver dongle, HDMI capture card, webcam
+    url      any network stream FFmpeg reads (rtsp, rtmp, srt, udp, rtp, http)
+
+Auto listens on UDP 5600 and plays whichever of H.264 RTP, H.265 RTP or
+MPEG-TS arrives there.
+
+Internal-only mode (NOT shown in the panel; used by CI/tests and via
 GH_VIDEO_ALLOW_INTERNAL_MODES=1 for demos):
-    webcam  local USB webcam (OpenCV index)
     test    built-in synthetic pattern (CI / demos, no hardware)
 
 The mode and per-mode custom URLs persist via QSettings (organization
@@ -26,13 +34,15 @@ from PySide6.QtCore import QSettings
 from app.bridge.settings import app_settings
 
 # Order = the web panel's row order (auto first).
-UI_MODES = ("auto", "udp_rtp", "rtsp", "mjpeg")
+UI_MODES = ("auto", "udp_rtp", "udp_h265", "udp_ts", "rtsp", "mjpeg", "url", "webcam")
 # Worker-only modes stay reachable for tests/CI (test_video.py) and demos.
-INTERNAL_MODES = ("webcam", "test")
+INTERNAL_MODES = ("test",)
 ALL_MODES = UI_MODES + INTERNAL_MODES
 MODES = ALL_MODES  # backwards-compatible alias used by VideoController
 
 DEFAULT_RTP_PORT = 5600  # QGC / PX4 gz gstreamer convention
+DEFAULT_TS_PORT = 5000
+UDP_MODES = ("udp_rtp", "udp_h265", "udp_ts")
 DEFAULT_WEBCAM_INDEX = 0
 
 _DEFAULT_URLS = {
@@ -42,20 +52,29 @@ _DEFAULT_URLS = {
 
 # Hints rendered under each row — same copy as the web VideoSourcePanel.
 UI_HINTS = {
-    "auto": "Probe RTP → RTSP → MJPEG",
+    "auto": "Detects H.264 / H.265 RTP or MPEG-TS on UDP 5600",
     "udp_rtp": "PX4 SITL / drone H.264 on UDP 5600",
+    "udp_h265": "Digital FPV link H.265 on UDP 5600",
+    "udp_ts": "IP radio encoder MPEG-TS on UDP 5000",
     "rtsp": "rtsp://127.0.0.1:8554 or custom URL",
     "mjpeg": "http://192.168.4.1/vision or custom URL",
+    "url": "Any rtsp, rtmp, srt, udp, rtp or http stream",
+    "webcam": "Analog receiver or HDMI through a USB capture device",
 }
 
 UI_LABELS = {
     "auto": "Automatic",
-    "udp_rtp": "RTP 5600",
+    "udp_rtp": "RTP H.264",
+    "udp_h265": "RTP H.265",
+    "udp_ts": "MPEG-TS",
     "rtsp": "RTSP",
     "mjpeg": "MJPEG",
+    "url": "Stream URL",
+    "webcam": "USB / HDMI Capture",
 }
 
 URL_PLACEHOLDERS = {
+    "url": "srt://host:port, rtmp://…, udp://@:5600",
     "rtsp": "rtsp://user:pass@host:554/stream",
     "mjpeg": "http://host:8080/video",
 }
@@ -105,8 +124,10 @@ class VideoConfig:
             return _DEFAULT_URLS["rtsp"]
         if mode == "mjpeg":
             return _DEFAULT_URLS["mjpeg"]
-        if mode == "udp_rtp":
+        if mode in ("udp_rtp", "udp_h265"):
             return str(os.environ.get("GH_VIDEO_RTP_PORT", DEFAULT_RTP_PORT))
+        if mode == "udp_ts":
+            return str(DEFAULT_TS_PORT)
         if mode == "webcam":
             return str(DEFAULT_WEBCAM_INDEX)
         return ""

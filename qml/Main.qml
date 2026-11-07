@@ -88,6 +88,7 @@ ApplicationWindow {
         open: root.videoOpen && root.viewMode !== "planner"
         anchors { right: parent.right; bottom: parent.bottom; rightMargin: 12 + Token.dimension_hud_tapeWidth; bottomMargin: 56 }
         z: 30
+        maxHeight: parent.height - 56 - 64
         onCloseRequested: root.videoOpen = false
     }
 

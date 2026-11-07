@@ -37,7 +37,8 @@ def _enable_crash_log() -> None:
     """Native crashes (Qt, FFmpeg, PySide) kill the process without a Python
     traceback, and a desktop launch has no terminal — the app just vanishes.
     faulthandler writes every thread's stack to a file on SIGSEGV/SIGABRT so
-    a tester can send it. ~/.cache/ghost-controller/crash.log"""
+    a tester can send it. ~/.cache/ghost-controller/crash.log
+    (Windows: %USERPROFILE%\\.cache\\ghost-controller\\crash.log)"""
     import faulthandler
     import os
     import time
@@ -53,8 +54,15 @@ def _enable_crash_log() -> None:
         faulthandler.enable(file=fh, all_threads=True)
         globals()["_CRASH_LOG_FH"] = fh                       # keep the fd open for the handler
     except OSError:
-        faulthandler.enable()                                 # fall back to stderr
+        if sys.stderr is not None:                            # None in the Windows GUI build
+            faulthandler.enable()                             # fall back to stderr
 
+
+# Windows consoles default to a legacy code page, where one "→" in a log line
+# raises UnicodeEncodeError and takes down whichever thread printed it.
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(errors="replace")
 
 _enable_crash_log()
 

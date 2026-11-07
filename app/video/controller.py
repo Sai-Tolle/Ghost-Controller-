@@ -5,6 +5,8 @@ the newest BGR frame into a QImage and repaints the bound QML item. Status
 (state/label/fps) updates like the web HUD's video panel; all source
 selection mirrors the backend's mode semantics (auto probe order
 udp_rtp → rtsp → mjpeg → webcam, custom-URL-first within each family).
+USB capture devices (analog receivers, HDMI capture cards) are listed on a
+background thread because finding them can mean opening each one.
 
 QML API:
     readonly frame        QImage (valid while hasFrame)
@@ -13,20 +15,26 @@ QML API:
     readonly label        human status ("LIVE · udp_rtp:5600", errors, ...)
     readonly sourceLabel  configured source ("auto", "udp_rtp:5600", ...)
     readonly fps          measured frames per second
-    Slots: setMode(mode), setCustomUrl(mode, url), forceReconnect()
+    readonly captureDevices  [{id, label}] of USB capture devices
+    readonly captureDevice   selected capture device id
+    Slots: setMode(mode), setCustomUrl(mode, url) → bool, forceReconnect(),
+           scanCaptureDevices()
 """
 from __future__ import annotations
 
 import os
+import re
 import threading
 import time
+from urllib.parse import urlsplit
 
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtQuick import QQuickImageProvider
 
-from app.video.config import DEFAULT_RTP_PORT, MODES, VideoConfig
-from app.video.worker import FrameHub, VideoWorker, redact_url
+from app.video.config import DEFAULT_RTP_PORT, MODES, UDP_MODES, VideoConfig
+from app.video.devices import list_capture_devices
+from app.video.worker import URL_SCHEMES, FrameHub, VideoWorker, redact_url
 
 class VideoImageProvider(QQuickImageProvider):
     """Serves the newest frame as image://video/<seq> — QML Image elements
@@ -56,6 +64,8 @@ class VideoImageProvider(QQuickImageProvider):
 class VideoController(QObject):
     frameChanged = Signal()
     statusChanged = Signal()
+    devicesChanged = Signal()
+    _devicesFound = Signal("QVariantList")  # scan thread → GUI thread
 
     def __init__(self, parent=None, data_lake=None) -> None:
         super().__init__(parent)
@@ -73,6 +83,9 @@ class VideoController(QObject):
         self._resolution = ""  # "1280x720" from the last frame
         self._seen_frames = 0  # hub count at last fps sample
         self._last_fps_ts = time.monotonic()
+        self._devices: list[dict] = []
+        self._scanning = False
+        self._devicesFound.connect(self._on_devices_found)
 
         self._timer = QTimer(self)
         self._timer.setInterval(33)  # ~30 Hz paint tick
@@ -114,8 +127,8 @@ class VideoController(QObject):
     @Property(str, notify=statusChanged)
     def sourceLabel(self) -> str:  # noqa: N802
         mode = self._config.get_mode()
-        if mode == "udp_rtp":
-            return f"udp_rtp:{self._config.get_custom_url('udp_rtp') or DEFAULT_RTP_PORT}"
+        if mode in UDP_MODES:
+            return f"{mode}:{self._config.get_custom_url(mode) or self._config.default_url(mode)}"
         url = self._config.get_custom_url(mode)
         if url:
             return f"{mode}:{redact_url(url)}"     # never paint camera passwords on the HUD
@@ -140,16 +153,32 @@ class VideoController(QObject):
     def customUrls(self) -> dict:  # noqa: N802
         """{mode: url} — bindable. The old customUrl() slot was evaluated once
         per delegate, so the URL badge and clear button never updated after SET."""
-        return {m: redact_url(self._config.get_custom_url(m)) for m in ("rtsp", "mjpeg")}
+        return {m: redact_url(self._config.get_custom_url(m)) for m in UDP_MODES + ("rtsp", "mjpeg", "url")}
 
     @Property("QVariantList", constant=True)
     def modeHints(self) -> list:  # noqa: N802
         return [
-            {"mode": "auto", "label": "Automatic", "hint": "Listens for RTP on UDP 5600"},
-            {"mode": "udp_rtp", "label": "RTP 5600", "hint": "PX4 SITL / drone H.264 on UDP 5600"},
+            {"mode": "auto", "label": "Automatic", "hint": "Detects H.264 / H.265 RTP or MPEG-TS on UDP 5600"},
+            {"mode": "udp_rtp", "label": "RTP H.264", "hint": "PX4 SITL / drone H.264 on UDP 5600"},
+            {"mode": "udp_h265", "label": "RTP H.265", "hint": "Digital FPV link H.265 on UDP 5600"},
+            {"mode": "udp_ts", "label": "MPEG-TS", "hint": "IP radio encoder MPEG-TS on UDP 5000"},
             {"mode": "rtsp", "label": "RTSP", "hint": "rtsp://127.0.0.1:8554 or custom URL"},
             {"mode": "mjpeg", "label": "MJPEG", "hint": "http://192.168.4.1/vision or custom URL"},
+            {"mode": "url", "label": "Stream URL", "hint": "Any rtsp, rtmp, srt, udp, rtp or http stream"},
+            {"mode": "webcam", "label": "USB / HDMI Capture", "hint": "Analog receiver or HDMI through a USB capture device"},
         ]
+
+    @Property("QVariantList", notify=devicesChanged)
+    def captureDevices(self) -> list:  # noqa: N802
+        return list(self._devices)
+
+    @Property(bool, notify=devicesChanged)
+    def scanningDevices(self) -> bool:  # noqa: N802
+        return self._scanning
+
+    @Property(str, notify=statusChanged)
+    def captureDevice(self) -> str:  # noqa: N802
+        return self._config.get_custom_url("webcam") or self._config.default_url("webcam")
 
     @Slot(str, result=str)
     def customUrl(self, mode: str) -> str:  # noqa: N802
@@ -171,31 +200,70 @@ class VideoController(QObject):
             return
         self._apply_mode(mode)
 
-    @Slot(str, str)
-    def setCustomUrl(self, mode: str, url: str) -> None:  # noqa: N802
+    @Slot(str, str, result=bool)
+    def setCustomUrl(self, mode: str, url: str) -> bool:  # noqa: N802
         if mode not in MODES:
-            return
+            return False
         url = url.strip()
         if len(url) > 2048 or any(ord(ch) < 0x20 for ch in url):
             self._label = f"{mode}: invalid URL"
             self._state = "error"
             self.statusChanged.emit()
-            return
+            return False
+        if mode in UDP_MODES and url and not (url.isdecimal() and 1 <= int(url) <= 65535):
+            self._label = f"{mode}: UDP port must be 1–65535"
+            self._state = "error"
+            self.statusChanged.emit()
+            return False
+        if mode == "url" and url and urlsplit(url).scheme.lower() not in URL_SCHEMES:
+            self._label = "url: must start with " + ", ".join(s + "://" for s in URL_SCHEMES[:6]) + " …"
+            self._state = "error"
+            self.statusChanged.emit()
+            return False
+        if mode == "webcam" and url and not re.fullmatch(r"\d+|/dev/video\d+", url):
+            self._label = "capture: device must be a number or /dev/videoN"
+            self._state = "error"
+            self.statusChanged.emit()
+            return False
         if mode in ("rtsp", "mjpeg") and url:
             ok = url.lower().startswith("rtsp://") if mode == "rtsp" else url.lower().startswith(("http://", "https://"))
             if not ok:
                 self._label = f"{mode}: URL must start with " + ("rtsp://" if mode == "rtsp" else "http:// or https://")
                 self._state = "error"
                 self.statusChanged.emit()
-                return
+                return False
         self._config.set_custom_url(mode, url)
         self.statusChanged.emit()
         if mode == self._config.get_mode():
             self._restart()
+        return True
 
     @Slot()
     def forceReconnect(self) -> None:  # noqa: N802
         self._restart()
+
+    @Slot()
+    def scanCaptureDevices(self) -> None:  # noqa: N802
+        if self._scanning:
+            return
+        self._scanning = True
+        self.devicesChanged.emit()
+        selected = self.captureDevice
+
+        def scan() -> None:
+            try:
+                found = list_capture_devices(selected)
+            except Exception:  # noqa: BLE001 — a failed scan is just an empty list
+                found = []
+            self._devicesFound.emit(found)
+
+        threading.Thread(target=scan, name="gh-video-scan", daemon=True).start()
+
+    @Slot("QVariantList")
+    def _on_devices_found(self, devices: list) -> None:
+        self._devices = list(devices)
+        self._scanning = False
+        self.devicesChanged.emit()
 
     # ---- internals ---------------------------------------------------------
 
@@ -203,6 +271,8 @@ class VideoController(QObject):
         self._config.set_mode(mode)
         self.statusChanged.emit()
         self._restart()
+        if mode == "webcam":
+            self.scanCaptureDevices()
 
     def _restart(self) -> None:
         """Resolve the configured mode into a worker spec (source_detector
@@ -212,29 +282,34 @@ class VideoController(QObject):
         if not self._thread.is_alive():
             self._thread = threading.Thread(target=self._worker._loop, name="gh-video", daemon=True)
             self._thread.start()
+        self._hub.last_error = None  # the previous source's error is not this one's
         mode = self._config.get_mode()
         url = self._config.get_custom_url(mode)
         if mode == "auto":
-            # Auto listens for the QGC-convention RTP stream (PX4 SITL / drone
-            # H.264 on UDP 5600) the same way the web GCS does. It does NOT
-            # fall back to a synthetic test pattern or open a webcam — with
-            # no stream the panel shows NO SIGNAL until frames arrive.
+            # Auto listens on the QGC-convention port (PX4 SITL / drone video
+            # on UDP 5600) and plays H.264 RTP, H.265 RTP or MPEG-TS, whichever
+            # arrives. It does NOT fall back to a synthetic test pattern or
+            # open a webcam — with no stream the panel shows NO SIGNAL.
             try:
                 port = int(url or DEFAULT_RTP_PORT)
             except ValueError:
                 port = DEFAULT_RTP_PORT
             self._worker.detail = str(port)
-            self._worker.start({"kind": "udp_rtp", "port": port})
+            self._worker.start({"kind": "udp_auto", "port": port})
             self._state = "connecting"
             self._label = f"auto · listening UDP {port} — no stream yet"
             self.statusChanged.emit()
             return
-        if mode == "udp_rtp":
+        if mode in UDP_MODES:
+            default_port = self._config.default_url(mode)
             try:
-                self._worker.detail = str(int(url or DEFAULT_RTP_PORT))
+                self._worker.detail = str(int(url or default_port))
             except ValueError:
-                self._worker.detail = str(DEFAULT_RTP_PORT)
-            self._worker.start({"kind": "udp_rtp", "port": int(self._worker.detail)})
+                self._worker.detail = default_port
+            self._worker.start({"kind": mode, "port": int(self._worker.detail)})
+        elif mode == "url":
+            self._worker.detail = url
+            self._worker.start({"kind": "url"})
         elif mode == "test":
             self._worker.detail = ""
             self._worker.start({"kind": "test"})
@@ -271,7 +346,8 @@ class VideoController(QObject):
             self.frameChanged.emit()
             if self._state != "live":
                 self._state = "live"
-                self._label = f"LIVE · {self.sourceLabel}"
+                detected = self._worker.detected
+                self._label = f"LIVE · {self.sourceLabel}" + (f" ({detected})" if detected else "")
                 self.statusChanged.emit()
         else:
             # No fresh frame (hub drops frames older than 1 s). _has_frame used

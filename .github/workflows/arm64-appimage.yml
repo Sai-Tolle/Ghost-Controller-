@@ -1,4 +1,5 @@
-# Build both AppImage architectures and ship them together on one release.
+# Build both AppImage architectures and the Windows installer, and ship them
+# together on one release.
 #
 # x86_64: GitHub's ubuntu-22.04 runner — PyPI has x86_64 wheels for
 #          PySide6/numpy/PyAV/OpenCV, so the normal pip venv path works.
@@ -14,10 +15,15 @@
 #          Debian madison API), so packaging/build-linux.sh's aarch64 branch
 #          uses apt for the heavy deps and pip only for pure-Python remainder.
 #
-# The ARM64 job depends on x86_64 so both attach to the SAME release without
-# racing to create it. Trigger: push a tag (v*) or run manually from the
+# windows: windows-2022 runner, PyPI wheels for everything, PyInstaller onedir
+#          wrapped in an Inno Setup installer. Before the upload the installer
+#          is installed silently, the installed app passes --smoke, and it is
+#          uninstalled again, so a release never ships an installer that fails.
+#
+# The jobs run one after another (x86_64 → ARM64 → Windows) so all attach to
+# the SAME release without racing to create it. Trigger: push a tag (v*) or run manually from the
 # Actions tab (artifacts only).
-name: AppImage builds (x86_64 + ARM64)
+name: Release builds (Linux x86_64 + ARM64, Windows)
 
 on:
   push:
@@ -143,3 +149,73 @@ jobs:
             dist/Ghost_Controller-aarch64.AppImage
             dist/Ghost_Controller-aarch64.AppImage.zsync
             dist/Ghost_Controller-aarch64.AppImage.sha256
+
+  windows-installer:
+    needs: arm64-appimage
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup and ffmpeg (video tests)
+        shell: pwsh
+        run: choco install innosetup ffmpeg -y --no-progress
+
+      - name: Build bundle + installer
+        shell: pwsh
+        run: ./packaging/build-windows.ps1 -Installer
+
+      - name: Video and radio system tests on Windows
+        shell: pwsh
+        run: |
+          .venv-desktop\Scripts\python.exe tests\test_radio_systems.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          .venv-desktop\Scripts\python.exe tests\test_video.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Install silently, smoke test the installed app, uninstall
+        shell: pwsh
+        run: |
+          $dir = "$env:RUNNER_TEMP\GhostController"
+          $p = Start-Process dist\Ghost_Controller-Setup-x86_64.exe -Wait -PassThru `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/DIR=$dir"
+          if ($p.ExitCode -ne 0) { throw "installer exit $($p.ExitCode)" }
+          # GUI build: no console, so judge by exit code and the saved frame.
+          $p = Start-Process "$dir\ghost-handler.exe" -ArgumentList "--smoke" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installed app --smoke exit $($p.ExitCode)" }
+          if (-not (Get-ChildItem $dir -Recurse -Filter smoke.png)) { throw "no smoke frame" }
+          $p = Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "uninstaller exit $($p.ExitCode)" }
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist\Ghost_Controller-Setup-x86_64.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  Ghost_Controller-Setup-x86_64.exe" | Out-File -Encoding ascii -NoNewline dist\Ghost_Controller-Setup-x86_64.exe.sha256
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: |
+            dist/Ghost_Controller-Setup-x86_64.exe
+            dist/Ghost_Controller-Setup-x86_64.exe.sha256
+
+      - name: Upload as artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Ghost_Controller-Windows-x86_64
+          path: |
+            dist/Ghost_Controller-Setup-x86_64.exe
+            dist/Ghost_Controller-Setup-x86_64.exe.sha256

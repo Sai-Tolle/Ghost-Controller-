@@ -6,9 +6,11 @@
 # The backend is VENDORED inside this repository (backend/mavlink), so the
 # bundle ships it like any other package — no external checkout needed.
 # The desktop build contains NO AI / vision modules.
+import sys
 from pathlib import Path
 
 APP_ROOT = Path(SPECPATH).parent
+WINDOWS = sys.platform == "win32"
 
 # backend/gcs.env is a LOCAL, untracked config file (it can hold API keys and
 # camera URLs with passwords). Ship the backend without it and without caches.
@@ -80,7 +82,10 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=False,
-    console=True,  # keep stdout/stderr visible for field diagnostics
+    # Linux keeps stdout/stderr visible for field diagnostics; on Windows a
+    # console build would open a black terminal window next to the app.
+    console=not WINDOWS,
+    icon=str(APP_ROOT / "build" / "ghost-controller.ico") if WINDOWS else None,
 )
 coll = COLLECT(
     exe,

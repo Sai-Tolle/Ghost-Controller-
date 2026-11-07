@@ -6,7 +6,15 @@ Mirrors GCS/video/ semantics with one thread per family:
                UDP :5600 → synthetic SDP → PyAV demux → H.264 decode → hub.
                This is how PX4 SITL (gz gstreamer plugin) and most drones
                stream; the QGC convention port 5600 is probed first in auto.
-    webcam   → OpenCV VideoCapture (source_detector.py / webrtc.py)
+    udp_h265 → same path with an H.265 SDP (OpenIPC and other digital FPV links)
+    udp_ts   → MPEG-TS over UDP (video encoders behind IP radios)
+    udp_auto → listens on one UDP port and works out which of the three above
+               is arriving, so a link need not be named to be shown
+    url      → any network stream FFmpeg reads (rtsp, rtmp, srt, udp, rtp,
+               http/HLS), for systems that fit none of the above
+    webcam   → OpenCV VideoCapture (source_detector.py / webrtc.py); this is
+               also how analog receivers and HDMI output reach the app, through
+               a USB capture dongle that appears as a camera
     rtsp     → OpenCV VideoCapture with CAP_FFMPEG (fast TCP pre-check first,
                exactly like source_detector._rtsp_reachable)
     mjpeg    → multipart/x-mixed-replace reader (webrtc._mjpeg_reader)
@@ -21,7 +29,9 @@ the backend workers.
 from __future__ import annotations
 
 import os
+import re
 import socket
+import sys
 import tempfile
 import threading
 import time
@@ -33,9 +43,59 @@ s=GCS Video
 c=IN IP4 0.0.0.0
 t=0 0
 m=video {port} RTP/AVP 96
-a=rtpmap:96 H264/90000
-a=fmtp:96 packetization-mode=1
+{codec}
 """
+
+SDP_CODECS = {
+    "udp_rtp": "a=rtpmap:96 H264/90000\na=fmtp:96 packetization-mode=1",
+    "udp_h265": "a=rtpmap:96 H265/90000",
+}
+
+# A capture source must be a camera index or a V4L2 node, never a file path.
+_CAPTURE_PATH = re.compile(r"^/dev/video\d+$")
+# cap.read() fails this many times in a row (~5 s) → reopen. An unplugged USB
+# capture dongle keeps failing forever on the old handle, so replugging it
+# would otherwise never bring the picture back.
+MAX_READ_FAILURES = 25
+
+# Stream URL source: network protocols only. FFmpeg would otherwise also read
+# local files, concat: and subfile: lists from a URL the operator pasted.
+URL_SCHEMES = ("rtsp", "rtsps", "rtmp", "rtmps", "srt", "udp", "rtp", "tcp", "http", "https")
+URL_PROTOCOLS = "tcp,udp,rtp,rtsp,rtsps,rtmp,rtmps,rtmpt,srt,http,https,tls,crypto,hls,httpproxy"
+
+H264_RTP_TYPES = {1, 5, 7, 8, 24, 28}       # slice, IDR, SPS, PPS, STAP-A, FU-A
+H265_RTP_TYPES = set(range(0, 22)) | set(range(32, 41)) | {48, 49}
+
+
+def classify_udp_payload(data: bytes) -> str | None:
+    """One UDP datagram → "udp_ts", "udp_rtp" (H.264), "udp_h265" or None.
+
+    MPEG-TS arrives as whole 188-byte packets starting with the 0x47 sync
+    byte. RTP is told apart by the first byte(s) of the NAL unit: a byte can
+    pass for either codec, so callers decide on a majority of datagrams."""
+    if len(data) >= 188 and len(data) % 188 == 0 and data[0] == 0x47 and data[188 * (len(data) // 188 - 1)] == 0x47:
+        return "udp_ts"
+    if len(data) < 14 or data[0] >> 6 != 2:
+        return None
+    offset = 12 + 4 * (data[0] & 0x0F)
+    if data[0] & 0x10:                       # header extension
+        if len(data) < offset + 4:
+            return None
+        offset += 4 + 4 * int.from_bytes(data[offset + 2:offset + 4], "big")
+    if len(data) < offset + 2:
+        return None
+    b0, b1 = data[offset], data[offset + 1]
+    h264 = not b0 & 0x80 and b0 & 0x60 and (b0 & 0x1F) in H264_RTP_TYPES
+    h265 = not b0 & 0x81 and (b1 & 0x07) >= 1 and ((b0 >> 1) & 0x3F) in H265_RTP_TYPES
+    if h264 and not h265:
+        return "udp_rtp"
+    if h265 and not h264:
+        return "udp_h265"
+    return None
+
+
+def detected_label(kind: str) -> str:
+    return {"udp_rtp": "H.264 RTP", "udp_h265": "H.265 RTP", "udp_ts": "MPEG-TS"}.get(kind, "")
 
 FALLBACK_WIDTH, FALLBACK_HEIGHT = 640, 480   # test-pattern size only
 MAX_WIDTH, MAX_HEIGHT = 1920, 1080           # decode cap; native aspect is preserved
@@ -99,7 +159,7 @@ def _tcp_reachable(host: str, port: int, timeout: float = 1.0) -> bool:
 class VideoWorker:
     """Single background worker; `restart(spec)` switches source family.
 
-    spec: {"kind": "udp_rtp"|"mjpeg"|"rtsp"|"webcam"|"test",
+    spec: {"kind": "udp_rtp"|"udp_h265"|"udp_ts"|"mjpeg"|"rtsp"|"webcam"|"test",
            "port"?: int, "url"?: str, "index"?: int}
     """
 
@@ -110,6 +170,7 @@ class VideoWorker:
         self._thread: threading.Thread | None = None
         self.kind = "test"
         self.detail = ""
+        self.detected = ""  # udp_auto: the transport it found
 
     # ---- lifecycle ----
 
@@ -149,9 +210,15 @@ class VideoWorker:
             self._wake.clear()
             if self._stop.is_set():
                 break
-            if self.kind == "udp_rtp":
+            if self.kind == "udp_auto":
+                self._run_udp_auto(int(self.detail or 5600))
+            elif self.kind == "url":
+                self._run_url(self.detail)
+            elif self.kind in SDP_CODECS:
                 port = int(self.detail or 5600)
-                self._run_udp_rtp(port)
+                self._run_udp_rtp(port, self.kind)
+            elif self.kind == "udp_ts":
+                self._run_udp_ts(int(self.detail or 5000))
             elif self.kind == "test":
                 self._run_test()
             elif cv2 is None:
@@ -162,15 +229,87 @@ class VideoWorker:
             elif self.kind == "rtsp":
                 self._run_capture(cv2, self.detail, cv2.CAP_FFMPEG)
             elif self.kind == "webcam":
-                self._run_capture(cv2, self._camera_index(self.detail), cv2.CAP_ANY)
+                # MSMF, which CAP_ANY picks first on Windows, opens slowly and
+                # refuses many capture dongles; DirectShow is the reliable path.
+                backend = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
+                self._run_capture(cv2, self._camera_index(self.detail), backend)
             else:
                 self._stop.wait(0.5)
 
     def _emit(self, img) -> None:
         self._hub.publish(img)
 
-    def _run_udp_rtp(self, port: int) -> None:
-        """UDP H.264 RTP → SDP file → PyAV demux/decode (port of
+    def _sniff_udp(self, port: int, window: float = 2.0) -> str | None:
+        """Listen briefly and vote on what the datagrams carry."""
+        votes: dict[str, int] = {}
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        except OSError as exc:
+            self._hub.last_error = f"auto: {exc}"
+            return None
+        try:
+            sock.bind(("0.0.0.0", port))
+            sock.settimeout(0.25)
+            deadline = time.monotonic() + window
+            seen = 0
+            while time.monotonic() < deadline and seen < 60:
+                if self._stop.is_set() or self._wake.is_set():
+                    return None
+                try:
+                    data = sock.recv(65536)
+                except socket.timeout:
+                    continue
+                seen += 1
+                kind = classify_udp_payload(data)
+                if kind:
+                    votes[kind] = votes.get(kind, 0) + 1
+        except OSError as exc:
+            self._hub.last_error = f"auto: UDP {port}: {exc}"
+            self._stop.wait(1.0)
+            return None
+        finally:
+            sock.close()
+        if not votes:
+            self._hub.last_error = f"auto: no stream on UDP {port} yet"
+            return None
+        return max(votes, key=votes.get)
+
+    def _run_udp_auto(self, port: int) -> None:
+        """Find out what arrives on the port, play it, and look again once
+        that stream ends (the air unit may have been switched to H.265)."""
+        while not self._stop.is_set() and not self._wake.is_set():
+            kind = self._sniff_udp(port)
+            if kind is None:
+                continue
+            self.detected = detected_label(kind)
+            if kind == "udp_ts":
+                self._run_udp_ts(port, retry=False)
+            else:
+                self._run_udp_rtp(port, kind, retry=False)
+            self.detected = ""
+
+    def _run_url(self, url: str) -> None:
+        """Any network stream FFmpeg can read, decoded through PyAV."""
+        try:
+            import av
+        except Exception as exc:  # noqa: BLE001 — decoder missing must not kill the thread
+            self._hub.last_error = f"url: PyAV unavailable ({exc})"
+            self._stop.wait(2.0)
+            return
+        if urlsplit(url).scheme.lower() not in URL_SCHEMES:
+            self._hub.last_error = "url: enter a stream URL (rtsp, rtmp, srt, udp, rtp, http)"
+            self._stop.wait(2.0)
+            return
+        self._demux(av, url, None, {
+            "timeout": "5000000",
+            "rw_timeout": "5000000",
+            "protocol_whitelist": URL_PROTOCOLS,
+            "fflags": "nobuffer",
+            "flags": "low_delay",
+        }, "url")
+
+    def _run_udp_rtp(self, port: int, kind: str = "udp_rtp", retry: bool = True) -> None:
+        """UDP H.264/H.265 RTP → SDP file → PyAV demux/decode (port of
         GCS/video/rtp_receiver.py, same reopen/timeout semantics)."""
         try:
             import av
@@ -188,42 +327,63 @@ class VideoWorker:
         try:
             fd, sdp_path = tempfile.mkstemp(prefix="gh_video_rtp_", suffix=".sdp")
             with os.fdopen(fd, "w") as fh:
-                fh.write(SDP_TEMPLATE.format(port=port))
+                fh.write(SDP_TEMPLATE.format(port=port, codec=SDP_CODECS[kind]))
         except OSError as exc:
             self._hub.last_error = f"rtp: cannot write SDP file ({exc})"
             self._stop.wait(2.0)
             return
         try:
-            self._demux_rtp(av, sdp_path, port)
+            self._demux(av, sdp_path, "sdp", {
+                "timeout": "2000000",
+                "protocol_whitelist": "file,udp,rtp",
+                "buffer_size": "262144",
+                "fflags": "nobuffer",
+                "flags": "low_delay",
+                "max_delay": "100000",
+            }, f"rtp:{port}", retry)
         finally:
             try:
                 os.unlink(sdp_path)
             except OSError:
                 pass
 
-    def _demux_rtp(self, av, sdp_path: str, port: int) -> None:
+    def _run_udp_ts(self, port: int, retry: bool = True) -> None:
+        """MPEG-TS over UDP → PyAV demux/decode; the codec comes from the
+        stream itself, so H.264 and H.265 encoders both work."""
+        try:
+            import av
+        except Exception as exc:  # noqa: BLE001 — decoder missing must not kill the thread
+            self._hub.last_error = f"mpegts: PyAV unavailable ({exc})"
+            self._stop.wait(2.0)
+            return
+        if not 1 <= port <= 65535:
+            self._hub.last_error = f"mpegts: invalid UDP port {port}"
+            self._stop.wait(2.0)
+            return
+        self._demux(av, f"udp://0.0.0.0:{port}?overrun_nonfatal=1&fifo_size=65536", "mpegts", {
+            "timeout": "2000000",
+            "protocol_whitelist": "udp",
+            "fflags": "nobuffer",
+            "flags": "low_delay",
+        }, f"mpegts:{port}", retry)
+
+    def _demux(self, av, source: str, fmt: str | None, options: dict, tag: str, retry: bool = True) -> None:
+        """Decode `source` into the hub. retry=False returns after the first
+        session ends or fails, so udp_auto can look at the port again."""
         while not self._stop.is_set() and not self._wake.is_set():
             try:
-                container = av.open(
-                    sdp_path,
-                    format="sdp",
-                    options={
-                        "timeout": "2000000",
-                        "protocol_whitelist": "file,udp,rtp",
-                        "buffer_size": "262144",
-                        "fflags": "nobuffer",
-                        "flags": "low_delay",
-                        "max_delay": "100000",
-                    },
-                )
+                container = av.open(source, format=fmt, options=options)
             except Exception as exc:  # noqa: BLE001 — no stream (yet); keep probing
-                self._hub.last_error = f"rtp: {exc}"
+                # FFmpeg quotes the URL in its errors; keep passwords off screen.
+                self._hub.last_error = f"{tag}: {exc}".replace(source, redact_url(source))
                 self._stop.wait(1.0)
+                if not retry:
+                    return
                 continue
             try:
                 stream = next((s for s in container.streams if s.type == "video"), None)
                 if stream is None:
-                    raise RuntimeError("no video stream in SDP session")
+                    raise RuntimeError("no video stream in this source")
                 for packet in container.demux(stream):
                     if self._stop.is_set() or self._wake.is_set():
                         break
@@ -246,8 +406,10 @@ class VideoWorker:
                 except Exception:
                     pass
             if not self._stop.is_set() and not self._wake.is_set():
-                self._hub.last_error = f"rtp:{port} stream ended; reopening"
+                self._hub.last_error = f"{tag} stream ended; reopening"
                 self._stop.wait(1.0)
+            if not retry:
+                return
 
     def _run_test(self) -> None:
         """Synthetic source: static + moving pattern with a frame counter —
@@ -337,6 +499,13 @@ class VideoWorker:
                     self._hub.last_error = "rtsp: URL must start with rtsp://"
                     self._stop.wait(2.0)
                     return
+                if api_preference != cv2.CAP_FFMPEG and isinstance(source, str) \
+                        and not _CAPTURE_PATH.match(source):
+                    # A value restored from the settings file never went through
+                    # the controller's check, and CAP_ANY would open files too.
+                    self._hub.last_error = "capture: device must be a number or /dev/videoN"
+                    self._stop.wait(2.0)
+                    return
                 if isinstance(source, str) and source.lower().startswith("rtsp://"):
                     parts = urlsplit(source)
                     if parts.hostname and not _tcp_reachable(parts.hostname, parts.port or 554):
@@ -352,13 +521,18 @@ class VideoWorker:
                 self._hub.last_error = str(exc)
                 self._stop.wait(1.0)
                 continue
+            failures = 0
             try:
                 while not self._stop.is_set() and not self._wake.is_set():
                     ok, img = cap.read()
                     if not ok or img is None:
                         self._hub.last_error = "capture returned no frame"
+                        failures += 1
+                        if failures >= MAX_READ_FAILURES:
+                            break
                         self._stop.wait(0.2)
                         continue
+                    failures = 0
                     h, w = img.shape[:2]
                     if w > MAX_WIDTH or h > MAX_HEIGHT:
                         img = _resize_fit(img, MAX_WIDTH, MAX_HEIGHT)
