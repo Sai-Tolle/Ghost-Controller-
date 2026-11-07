@@ -171,6 +171,17 @@ def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detai
         print(f"SKIP {kind} test — system ffmpeg lacks {encoder}")
         return
 
+    from app.video.worker import FrameHub, VideoWorker
+
+    # Receiver first, like a ground station waiting for the air unit.
+    hub = FrameHub()
+    w = VideoWorker(hub)
+    w.detail = detail or str(port)
+    w._thread = threading.Thread(target=w._loop, daemon=True)
+    w._thread.start()
+    w.start({"kind": kind})
+    time.sleep(0.5)
+
     # testsrc at 15 fps, keyframe every second like SITL cameras.
     proc = subprocess.Popen(
         [
@@ -183,15 +194,6 @@ def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detai
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
-        from app.video.worker import FrameHub, VideoWorker
-
-        hub = FrameHub()
-        w = VideoWorker(hub)
-        w.detail = detail or str(port)
-        w._thread = threading.Thread(target=w._loop, daemon=True)
-        w._thread.start()
-        w.start({"kind": kind})
-
         deadline = time.time() + 20
         while time.time() < deadline and hub.frames < 5:
             time.sleep(0.1)
@@ -199,19 +201,33 @@ def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detai
               f"frames={hub.frames} err={hub.last_error}")
         if expect_detected:
             check(f"{kind} detects {expect_detected}", w.detected == expect_detected, repr(w.detected))
-
-        w.stop()
     finally:
+        w.stop()
         proc.terminate()
         proc.wait(timeout=5)
 
 
 def _free_udp_port() -> int:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
+    """A port below every OS's ephemeral range whose RTCP neighbour is free too.
+    Windows hands out ephemeral ports in sequence, so a port picked with
+    bind(0) is next in line for the ffmpeg sender's own sockets; the receiver
+    then cannot bind it (WinError 10048)."""
+    import random
+
+    while True:
+        port = random.randrange(20000, 30000, 2)
+        socks = []
+        try:
+            for p in (port, port + 1):
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                socks.append(s)
+                s.bind(("0.0.0.0", p))
+            return port
+        except OSError:
+            continue
+        finally:
+            for s in socks:
+                s.close()
 
 
 def test_udp_rtp() -> None:
