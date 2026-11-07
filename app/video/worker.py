@@ -300,7 +300,13 @@ class VideoWorker:
             self._hub.last_error = "url: enter a stream URL (rtsp, rtmp, srt, udp, rtp, http)"
             self._stop.wait(2.0)
             return
-        self._demux(av, url, None, {
+        source = url
+        if urlsplit(url).scheme.lower() == "udp" and "overrun_nonfatal" not in url:
+            # While FFmpeg probes the stream, a fast sender fills the receive
+            # FIFO; by default that overrun is a fatal I/O error. Same
+            # settings as the MPEG-TS source.
+            source = url + ("&" if "?" in url else "?") + "overrun_nonfatal=1&fifo_size=65536"
+        self._demux(av, source, None, {
             "timeout": "5000000",
             "rw_timeout": "5000000",
             "protocol_whitelist": URL_PROTOCOLS,
