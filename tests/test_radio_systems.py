@@ -105,8 +105,12 @@ def test_udpout_says_hello() -> None:
 
     from backend.mavlink.connection import MAVLinkConnection
 
+    # On Windows pymavlink binds the udpout socket to 0.0.0.0:<destination
+    # port> (as QGC does for SIYI: local 19856 → ground unit :19856). With the
+    # fake unit on 127.0.0.1 too, its replies would loop back to itself.
+    host = "127.0.0.2" if sys.platform == "win32" else "127.0.0.1"
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("127.0.0.1", 0))
+    sock.bind((host, 0))
     sock.settimeout(5.0)
     port = sock.getsockname()[1]
 
@@ -131,16 +135,16 @@ def test_udpout_says_hello() -> None:
 
     thread = threading.Thread(target=ground_unit, daemon=True)
     thread.start()
-    conn = MAVLinkConnection(f"udpout:127.0.0.1:{port}")
-    master = mavutil.mavlink_connection(f"udpout:127.0.0.1:{port}")
+    conn = MAVLinkConnection(f"udpout:{host}:{port}")
+    master = mavutil.mavlink_connection(f"udpout:{host}:{port}")
     try:
         hb = conn._wait_vehicle_heartbeat(master, conn._generation, timeout=6.0)
         check("udpout link speaks first", "addr" in heard)
         check("udpout link gets the vehicle heartbeat", hb is not None)
     finally:
         master.close()
-        sock.close()
         thread.join(timeout=6)
+        sock.close()
 
 
 def main() -> int:
