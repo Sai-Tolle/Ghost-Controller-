@@ -339,9 +339,6 @@ Rectangle {
                    color: Token.color_ui_textDim }
         }
         HoverHandler { id: swHover; cursorShape: Qt.PointingHandCursor }
-        ToolTip.visible: swHover.hovered && sw.tip !== ""
-        ToolTip.text: sw.tip
-        ToolTip.delay: 500
         TapHandler { gesturePolicy: TapHandler.ReleaseWithinBounds; onTapped: sw.clicked() }
     }
 

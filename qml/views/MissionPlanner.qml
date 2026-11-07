@@ -248,29 +248,6 @@ Item {
         }
     }
 
-    // ---- active tool hint -----------------------------------------------------------------------------
-    Rectangle {
-        visible: root.anyToolActive
-        anchors.top: topBar.bottom; anchors.topMargin: 14
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: hintText.implicitWidth + 36; height: 34; radius: 17
-        color: Token.color_ui_glassStrong
-        border.width: 1; border.color: Token.color_ui_line
-        z: 20
-        Text {
-            id: hintText
-            anchors.centerIn: parent
-            text: root.tool === "orbit" ? "Click the map to orbit that point"
-                : root.tool === "fence" ? "Click the map to add fence vertices"
-                : root.tool === "deleteFence" ? "Click a fence vertex to remove it"
-                : root.tool === "waypoint" ? "Click the map to add waypoints"
-                : root.tool === "deleteWp" ? "Click a waypoint to delete it"
-                : root.tool === "survey" ? "Click the map to set the survey centre" : ""
-            font.pixelSize: 11
-            color: Token.color_accent_primary
-        }
-    }
-
     // ---- CONTEXT PANEL (one slot, top-right) ------------------------------------------------------------
     // survey
     CtxPanel {

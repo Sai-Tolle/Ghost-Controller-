@@ -121,10 +121,7 @@ Window {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: !Params.available ? "Running in simulation — parameters need a real backend link."
-                : !win.linked ? "Connect a vehicle to read and write its parameters."
-                : Params.state === "loading" ? "This takes a few seconds over USB / UDP, longer over a telemetry radio."
-                : Params.state === "error" ? Params.message : "Press REFRESH to read them from the vehicle."
+            text: Params.state === "error" ? Params.message : ""
             font.pixelSize: 12; color: Token.color_ui_textDim
         }
         TextButton {
@@ -197,7 +194,7 @@ Window {
                 id: search
                 objectName: "paramSearch"
                 width: 300; height: 32
-                placeholderText: "Search parameters   (Ctrl+F)"
+                placeholderText: "Search"
                 placeholderTextColor: Token.color_text_disabled
                 color: Token.color_ui_text
                 font.pixelSize: 13
@@ -351,8 +348,6 @@ Window {
                     font.pixelSize: 14; color: undoHover.hovered ? Token.color_ui_text : Token.color_ui_textDim
                     HoverHandler { id: undoHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: Params.unstage(rowItem.name) }
-                    ToolTip.visible: undoHover.hovered
-                    ToolTip.text: "Discard this edit"
                 }
             }
         }

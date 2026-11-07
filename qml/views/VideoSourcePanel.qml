@@ -144,14 +144,6 @@ Rectangle {
                         font.pixelSize: 12; font.weight: Font.DemiBold
                         color: Token.color_ui_text
                     }
-                    Text {
-                        visible: sys.selected
-                        width: parent.width
-                        wrapMode: Text.WordWrap
-                        text: sys.modelData.note
-                        font.pixelSize: 11
-                        color: Token.color_ui_textDim
-                    }
                 }
                 HoverHandler { id: sysHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler {
@@ -230,11 +222,6 @@ Rectangle {
                             selectByMouse: true
                             color: Token.color_ui_text
                             font.pixelSize: 11
-                            placeholderText: card.customUrl !== "" ? card.customUrl
-                                           : card.isUdp ? "UDP port " + Video.defaultUrl(card.mode)
-                                           : card.mode === "url" ? "srt://host:port, rtmp://…, udp://@:5600"
-                                           : (card.mode === "rtsp" ? "rtsp://user:pass@host:554/stream" : "http://host:8080/video")
-                            placeholderTextColor: Token.color_text_muted
                             leftPadding: 8
                             background: Rectangle {
                                 radius: 7; color: Token.color_ui_fill

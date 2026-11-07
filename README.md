@@ -1,36 +1,57 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/Logo-mark.png">
+  <img src="assets/Logo-mark-dark.png" alt="Ghost Controller logo" width="120" height="120">
+</picture>
+
 # Ghost Controller
 
-Production-grade **native** ground control station (no web-view wrapper) for
-**Linux first, then Windows**, built with **PySide6 + Qt Quick (QML)** — the
-same toolkit QGroundControl uses — running the proven backend worker stack
-**in-process**, self-contained in this repository.
+**A native, video-first ground control station for MAVLink vehicles.**
 
-The UI is a faithful native port of the proven **web-gcs** HUD (same layout,
-colors and interactions); the backend is the same MAVLink worker stack the
-web GCS serves over REST, minus FastAPI/websockets — and minus the AI
-assistant / vehicle-detection (vision) modules, which are intentionally NOT
-part of the desktop build.
+PySide6 + Qt Quick (QML) · PX4 & ArduPilot · Linux · Windows
+
+[Field test install guide](docs/TESTERS.md) · [Updating](docs/UPDATING.md) · [Release notes](docs/releases/v0.3.1.md)
+
+</div>
+
+---
+
+## Highlights
+
+- **Native, no web-view** — the same toolkit QGroundControl uses, with the MAVLink worker stack running in-process.
+- **Video-first HUD** — full-bleed live video with horizon, tapes, pitch ladder and a one-tap action cluster.
+- **Offline-ready maps** — offline tiles, custom image overlays and an online OSM fallback with disk cache.
+- **Mission planner** — waypoints, geofence, survey grids and live orbit, with QGC `.waypoints` import/export.
+- **Flexible video** — H.264/H.265 RTP, MPEG-TS, RTSP, MJPEG, any FFmpeg URL and USB/HDMI capture.
+- **Honest by design** — never shows a vehicle as connected until a real heartbeat arrives.
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  ghost-handler (native binary)                      │
 │                                                     │
 │  QML video-first HUD             Python bridge      │
-│  ├─ FlightView (video/horizon +  ◄─────  Telemetry   │
-│  │   tapes, ladder, actions)            Vehicle      │
-│  ├─ MapScreen (offline tiles +          Mission      │
-│   │   FLIGHT DATA panel)                Video        │
-│  ├─ MissionPlanner (waypoints,          MapBridge    │
-│   │   fence, survey, orbit tools)                    │
-│  └─ VideoSource + GCS menu drawers                   │
-│                          │                           │
-│            app/bridge/backend.py                     │
-│    SimulatedSource (--sim) │ BackendRuntimeSource    │
-│    DisconnectedSource ─────┘ imports backend/        │
-│                          (vendored, self-contained)  │
-│                          mavlink.shared_state        │
-╔═════════════════════════════════════════════════════╗
+│  ├─ FlightView (video/horizon +  ◄─────  Telemetry  │
+│  │   tapes, ladder, actions)            Vehicle     │
+│  ├─ MapScreen (offline tiles +          Mission     │
+│  │   FLIGHT DATA panel)                 Video       │
+│  ├─ MissionPlanner (waypoints,          MapBridge   │
+│  │   fence, survey, orbit tools)                    │
+│  └─ VideoSource + GCS menu drawers                  │
+│                          │                          │
+│            app/bridge/backend.py                    │
+│    SimulatedSource (--sim) │ BackendRuntimeSource   │
+│    DisconnectedSource ─────┘ imports backend/       │
+│                          (vendored, self-contained) │
+│                          mavlink.shared_state       │
+└─────────────────────────────────────────────────────┘
 ```
+
+The UI is a native port of the web-gcs HUD; the backend is the same MAVLink
+worker stack the web GCS serves, minus FastAPI/websockets and minus the AI
+assistant / vehicle-detection modules, which are not part of the desktop build.
 
 ## Connection honesty (read this first)
 

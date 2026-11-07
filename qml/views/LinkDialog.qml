@@ -170,7 +170,7 @@ Popup {
             spacing: 8
             Row {
                 spacing: 10
-                FormField { id: serialPort; title: "Port"; fieldWidth: 250; placeholder: "/dev/ttyACM0" }
+                FormField { id: serialPort; title: "Port"; fieldWidth: 250; placeholder: "" }
                 FormField { id: baud; title: "Baud"; fieldWidth: 90 }
             }
             Flow {
