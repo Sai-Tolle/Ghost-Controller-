@@ -197,10 +197,12 @@ def _stream_test(kind: str, encoder: str, muxer: str, url: str, port: int, detai
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
-        deadline = time.time() + 20
-        while time.time() < deadline and hub.frames < 5:
+        # Generous: software H.265 encoding on a 2-core CI runner manages
+        # only a few frames a second; decoding any frames proves the path.
+        deadline = time.time() + 40
+        while time.time() < deadline and hub.frames < 3:
             time.sleep(0.1)
-        check(f"{kind} decodes real {encoder}/{muxer} frames", hub.frames >= 5,
+        check(f"{kind} decodes real {encoder}/{muxer} frames", hub.frames >= 3,
               f"frames={hub.frames} err={hub.last_error}")
         if expect_detected:
             check(f"{kind} detects {expect_detected}", w.detected == expect_detected, repr(w.detected))
